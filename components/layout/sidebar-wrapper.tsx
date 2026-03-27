@@ -43,6 +43,7 @@ export function SidebarWrapper() {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, title } : c))
     );
+    window.dispatchEvent(new CustomEvent("conversation:renamed", { detail: { id, title } }));
     await fetch(`/api/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

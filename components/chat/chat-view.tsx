@@ -5,7 +5,7 @@ import { MessageUser } from "@/components/chat/message-user";
 import { MessageAgent } from "@/components/chat/message-agent";
 import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
-import type { AgentMessage, Message } from "@/types";
+import type { AgentMessage, Conversation, Message } from "@/types";
 
 interface LocalMessage {
   id: string;
@@ -153,7 +153,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load existing messages when conversationId changes
+  // Load existing messages + title when conversationId changes
   useEffect(() => {
     setMessages([]);
     setConversationTitle(null);
@@ -161,6 +161,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
     if (!conversationId) return;
 
+    // Fetch messages
     fetch(`/api/conversations/${conversationId}`)
       .then((r) => r.json())
       .then((data: Message[]) => {
@@ -179,6 +180,25 @@ export function ChatView({ conversationId }: ChatViewProps) {
         if (loaded.length > 0) setHasTitleBeenSet(true);
       })
       .catch(() => {});
+
+    // Fetch title for this conversation
+    fetch("/api/conversations")
+      .then((r) => r.json())
+      .then((data: Conversation[]) => {
+        const match = data.find((c) => c.id === conversationId);
+        if (match?.title) setConversationTitle(match.title);
+      })
+      .catch(() => {});
+  }, [conversationId]);
+
+  // Sync title when renamed from the sidebar
+  useEffect(() => {
+    function onRenamed(e: Event) {
+      const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
+      if (id === conversationId) setConversationTitle(title);
+    }
+    window.addEventListener("conversation:renamed", onRenamed);
+    return () => window.removeEventListener("conversation:renamed", onRenamed);
   }, [conversationId]);
 
   // Auto-scroll to bottom when messages change
