@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { MessageUser } from "@/components/chat/message-user";
 import { MessageAgent } from "@/components/chat/message-agent";
 import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
 import type { AgentMessage, Conversation, Message } from "@/types";
 import { useSidebar } from "@/components/layout/resizable-layout";
-import { PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen, Pencil, ChevronDown, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface LocalMessage {
   id: string;
@@ -154,8 +161,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastQuestionRef = useRef<string>("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
@@ -194,6 +204,36 @@ export function ChatView({ conversationId }: ChatViewProps) {
       })
       .catch(() => {});
   }, [conversationId]);
+
+  // Auto-select input text when title editing starts
+  useLayoutEffect(() => {
+    if (isEditingTitle) titleInputRef.current?.select();
+  }, [isEditingTitle]);
+
+  function startEditingTitle() {
+    if (!conversationId) return;
+    setTitleDraft(conversationTitle ?? "");
+    setIsEditingTitle(true);
+  }
+
+  function commitTitleRename() {
+    const trimmed = titleDraft.trim();
+    setIsEditingTitle(false);
+    if (!trimmed || trimmed === conversationTitle || !conversationId) return;
+    setConversationTitle(trimmed);
+    setHasTitleBeenSet(true);
+    window.dispatchEvent(new CustomEvent("conversation:renamed", { detail: { id: conversationId, title: trimmed } }));
+    fetch(`/api/conversations/${conversationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: trimmed }),
+    }).catch(() => {});
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") commitTitleRename();
+    if (e.key === "Escape") setIsEditingTitle(false);
+  }
 
   // Sync title when renamed from the sidebar
   useEffect(() => {
@@ -355,6 +395,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const lastAgentMsgId =
     messages.filter((m) => m.role === "assistant").at(-1)?.id ?? null;
   const sidebar = useSidebar();
+  const router = useRouter();
+
+  async function handleDeleteConversation() {
+    if (!conversationId) return;
+    await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" }).catch(() => {});
+    router.push("/chat");
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -369,9 +416,44 @@ export function ChatView({ conversationId }: ChatViewProps) {
             <PanelLeftOpen className="w-4 h-4" />
           </button>
         )}
-        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-          {conversationTitle ?? (messages.length > 0 ? "Conversation" : "New conversation")}
-        </p>
+        {conversationId ? (
+          isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitleRename}
+              onKeyDown={handleTitleKeyDown}
+              autoFocus
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-transparent outline-none border-b border-zinc-300 dark:border-zinc-600 min-w-0 max-w-xs"
+            />
+          ) : (
+            <DropdownMenu>
+              <div className="flex items-center border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <span className="pl-3 pr-2 py-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap max-w-xs truncate">
+                  {conversationTitle ?? "New conversation"}
+                </span>
+                <DropdownMenuTrigger asChild>
+                  <button className="border-l border-zinc-200 dark:border-zinc-700 px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors focus:outline-none">
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                  </button>
+                </DropdownMenuTrigger>
+              </div>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onSelect={startEditingTitle}>
+                  <Pencil className="w-3.5 h-3.5" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleDeleteConversation} destructive>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        ) : (
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">New conversation</p>
+        )}
       </div>
 
       {/* Messages */}

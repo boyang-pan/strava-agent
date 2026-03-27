@@ -1,8 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
-import type { PanelImperativeHandle } from "react-resizable-panels";
+import { createContext, useContext, useState } from "react";
 
 interface SidebarContextValue {
   isCollapsed: boolean;
@@ -21,40 +19,29 @@ interface ResizableLayoutProps {
 }
 
 export function ResizableLayout({ sidebar, children }: ResizableLayoutProps) {
-  const panelRef = useRef<PanelImperativeHandle>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   function toggle() {
-    if (isCollapsed) {
-      panelRef.current?.expand();
-    } else {
-      panelRef.current?.collapse();
-    }
+    setIsCollapsed((c) => !c);
   }
 
   return (
     <SidebarContext value={{ isCollapsed, toggle }}>
-      <Group orientation="horizontal" className="h-full w-full">
-        <Panel
-          panelRef={panelRef}
-          defaultSize="20%"
-          minSize="15%"
-          maxSize="35%"
-          collapsible
-          collapsedSize="0%"
-          onResize={(size) => setIsCollapsed(size.asPercentage === 0)}
+      <div className="flex h-full">
+        {/* Sidebar — fixed width, animate in/out */}
+        <div
+          className={`shrink-0 transition-all duration-200 overflow-hidden ${
+            isCollapsed ? "w-0" : "w-60"
+          }`}
         >
           {sidebar}
-        </Panel>
+        </div>
 
-        <Separator className="group relative w-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors cursor-col-resize" />
-
-        <Panel>
-          <div className="h-full overflow-hidden">
-            {children}
-          </div>
-        </Panel>
-      </Group>
+        {/* Main content */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          {children}
+        </div>
+      </div>
     </SidebarContext>
   );
 }

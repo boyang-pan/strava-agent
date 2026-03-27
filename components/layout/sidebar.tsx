@@ -1,11 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Activity, Plus, Trash2, Sun, Moon } from "lucide-react";
+import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClose } from "lucide-react";
+import { useSidebar } from "@/components/layout/resizable-layout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { cn, groupByRecency } from "@/lib/utils";
 import type { Conversation } from "@/types";
 
@@ -76,16 +83,16 @@ function ConversationItem({
   return (
     <div
       className={cn(
-        "group relative w-full rounded-md transition-colors",
+        "group w-full min-w-0 rounded-md transition-colors flex items-center",
         isActive
           ? "bg-zinc-100 dark:bg-zinc-800"
           : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
       )}
     >
+      {/* Main select button */}
       <button
         onClick={onSelect}
-        onDoubleClick={startEditing}
-        className="w-full text-left px-3 py-2 pr-8"
+        className="flex-1 min-w-0 text-left px-3 py-2 overflow-hidden"
       >
         {isEditing ? (
           <input
@@ -115,17 +122,30 @@ function ConversationItem({
         </p>
       </button>
 
-      {/* Delete button — hover reveal */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700"
-        aria-label="Delete conversation"
-      >
-        <Trash2 className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300" />
-      </button>
+      {/* ··· menu — hover reveal */}
+      {!isEditing && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 mr-1 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200 dark:hover:bg-zinc-700 focus:opacity-100 focus:outline-none"
+              aria-label="More options"
+            >
+              <MoreHorizontal className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="right">
+            <DropdownMenuItem onSelect={startEditing}>
+              <Pencil className="w-3.5 h-3.5" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDelete} destructive>
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
@@ -167,13 +187,23 @@ function ThemeToggle() {
 
 export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename }: SidebarProps) {
   const groups = groupByRecency(conversations);
+  const sidebar = useSidebar();
 
   return (
-    <div className="border-r border-zinc-100 dark:border-zinc-800 flex flex-col h-full bg-white dark:bg-zinc-900">
+    <div className="border-r border-zinc-100 dark:border-zinc-800 flex flex-col h-full bg-white dark:bg-zinc-900 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-4">
         <Activity className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Strava Agent</span>
+        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex-1">Strava Agent</span>
+        {sidebar && (
+          <button
+            onClick={sidebar.toggle}
+            title="Hide sidebar"
+            className="p-1 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* New conversation */}
