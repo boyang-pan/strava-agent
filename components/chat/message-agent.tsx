@@ -56,7 +56,7 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
         <div className="mb-3">
           <button
             onClick={() => setUserExpanded((prev) => !(prev ?? false))}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors mb-1.5 group"
+            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1.5 group"
           >
             {isStreaming ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -97,46 +97,46 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
               remarkPlugins={[remarkGfm]}
               components={{
                 p: ({ children }) => (
-                  <p className="text-sm text-zinc-800 leading-relaxed mb-3 last:mb-0">{children}</p>
+                  <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed mb-3 last:mb-0">{children}</p>
                 ),
                 ul: ({ children }) => (
-                  <ul className="text-sm text-zinc-800 list-disc pl-4 mb-3 space-y-1">{children}</ul>
+                  <ul className="text-sm text-zinc-800 dark:text-zinc-200 list-disc pl-4 mb-3 space-y-1">{children}</ul>
                 ),
                 ol: ({ children }) => (
-                  <ol className="text-sm text-zinc-800 list-decimal pl-4 mb-3 space-y-1">{children}</ol>
+                  <ol className="text-sm text-zinc-800 dark:text-zinc-200 list-decimal pl-4 mb-3 space-y-1">{children}</ol>
                 ),
                 li: ({ children }) => (
-                  <li className="text-sm text-zinc-800 leading-relaxed">{children}</li>
+                  <li className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">{children}</li>
                 ),
                 strong: ({ children }) => (
-                  <strong className="font-semibold text-zinc-900">{children}</strong>
+                  <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{children}</strong>
                 ),
                 em: ({ children }) => (
                   <em className="italic">{children}</em>
                 ),
                 h1: ({ children }) => (
-                  <h1 className="text-base font-semibold text-zinc-900 mb-2 mt-4 first:mt-0">{children}</h1>
+                  <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-2 mt-4 first:mt-0">{children}</h1>
                 ),
                 h2: ({ children }) => (
-                  <h2 className="text-sm font-semibold text-zinc-900 mb-2 mt-4 first:mt-0">{children}</h2>
+                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2 mt-4 first:mt-0">{children}</h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-sm font-medium text-zinc-900 mb-1 mt-3 first:mt-0">{children}</h3>
+                  <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1 mt-3 first:mt-0">{children}</h3>
                 ),
                 code: ({ children, className }) => {
                   const isBlock = className?.includes("language-");
                   return isBlock ? (
-                    <code className="block text-xs bg-zinc-50 border border-zinc-200 rounded px-3 py-2 font-mono overflow-x-auto">
+                    <code className="block text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2 font-mono overflow-x-auto text-zinc-700 dark:text-zinc-300">
                       {children}
                     </code>
                   ) : (
-                    <code className="text-xs bg-zinc-100 rounded px-1 py-0.5 font-mono">{children}</code>
+                    <code className="text-xs bg-zinc-100 dark:bg-zinc-800 rounded px-1 py-0.5 font-mono text-zinc-700 dark:text-zinc-300">{children}</code>
                   );
                 },
                 pre: ({ children }) => (
                   <pre className="mb-3 last:mb-0">{children}</pre>
                 ),
-                hr: () => <hr className="border-zinc-200 my-3" />,
+                hr: () => <hr className="border-zinc-200 dark:border-zinc-700 my-3" />,
               }}
             >
               {message.final_answer}
@@ -146,7 +146,7 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
           {!isStreaming && !message.error && (
             <button
               onClick={handleCopy}
-              className="absolute -bottom-5 right-0 opacity-0 group-hover/answer:opacity-100 transition-opacity flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600"
+              className="absolute -bottom-5 right-0 opacity-0 group-hover/answer:opacity-100 transition-opacity flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
             >
               {copied ? (
                 <><Check className="w-3 h-3" /> Copied</>
@@ -159,7 +159,7 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
           {message.error && onRetry && !isStreaming && (
             <button
               onClick={onRetry}
-              className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 transition-colors"
+              className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
               Try again

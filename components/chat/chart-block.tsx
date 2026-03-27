@@ -42,10 +42,10 @@ export function ChartBlock({ chart }: ChartBlockProps) {
   const { type, title, subtitle, data, x_key, y_key, x_label, y_label } = chart;
 
   return (
-    <div className="border border-zinc-200 rounded-lg p-5 my-2">
-      <p className="text-sm font-semibold text-zinc-900">{title}</p>
+    <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-5 my-2">
+      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
       {subtitle && (
-        <p className="text-xs text-zinc-500 mt-0.5 mb-3">{subtitle}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3">{subtitle}</p>
       )}
 
       <ResponsiveContainer width="100%" height={240}>

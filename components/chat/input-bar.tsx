@@ -54,8 +54,8 @@ export function InputBar({ onSubmit, disabled }: InputBarProps) {
   return (
     <div
       className={cn(
-        "border border-zinc-200 rounded-lg flex items-end gap-2 p-2 transition-colors",
-        "focus-within:border-zinc-400"
+        "border border-zinc-200 dark:border-zinc-700 rounded-lg flex items-end gap-2 p-2 transition-colors",
+        "focus-within:border-zinc-400 dark:focus-within:border-zinc-500"
       )}
     >
       <textarea
@@ -71,7 +71,7 @@ export function InputBar({ onSubmit, disabled }: InputBarProps) {
         rows={1}
         className={cn(
           "flex-1 resize-none text-sm bg-transparent outline-none border-0 focus:ring-0",
-          "placeholder:text-zinc-400 text-zinc-900",
+          "placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100",
           "min-h-[40px] max-h-[160px] py-2 px-1 leading-relaxed",
           "disabled:opacity-50"
         )}
@@ -82,7 +82,7 @@ export function InputBar({ onSubmit, disabled }: InputBarProps) {
         size="icon"
         onClick={handleSubmit}
         disabled={!value.trim() || disabled}
-        className="shrink-0 h-8 w-8 text-zinc-400 hover:text-zinc-900 disabled:opacity-30"
+        className="shrink-0 h-8 w-8 text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-30"
       >
         <ArrowUp className="w-4 h-4" />
       </Button>

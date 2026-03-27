@@ -6,6 +6,8 @@ import { MessageAgent } from "@/components/chat/message-agent";
 import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
 import type { AgentMessage, Conversation, Message } from "@/types";
+import { useSidebar } from "@/components/layout/resizable-layout";
+import { PanelLeftOpen } from "lucide-react";
 
 interface LocalMessage {
   id: string;
@@ -352,12 +354,22 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   const lastAgentMsgId =
     messages.filter((m) => m.role === "assistant").at(-1)?.id ?? null;
+  const sidebar = useSidebar();
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-zinc-100 px-6 py-3 shrink-0">
-        <p className="text-sm font-medium text-zinc-900">
+      <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 shrink-0 flex items-center gap-2">
+        {sidebar?.isCollapsed && (
+          <button
+            onClick={sidebar.toggle}
+            title="Show sidebar"
+            className="p-1 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+          >
+            <PanelLeftOpen className="w-4 h-4" />
+          </button>
+        )}
+        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
           {conversationTitle ?? (messages.length > 0 ? "Conversation" : "New conversation")}
         </p>
       </div>
@@ -395,10 +407,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-100 p-4 shrink-0">
+      <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 shrink-0">
         <div className="max-w-2xl mx-auto">
           <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} />
-          <p className="text-xs text-zinc-400 text-center mt-2">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center mt-2">
             Notes from past conversations are always remembered.
           </p>
         </div>

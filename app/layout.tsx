@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "@/app/providers";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -24,11 +25,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <body
         className={`${dmSans.variable} ${ibmPlexMono.variable} h-full antialiased font-sans`}
+        suppressHydrationWarning
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
