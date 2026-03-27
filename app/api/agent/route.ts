@@ -42,20 +42,17 @@ export async function POST(request: Request) {
       duration_ms: number;
     }> = [];
 
-    // Phase 2 — execute the plan with the tool-calling loop
-    const result = streamText({
+    // Phase 2 config — shared across retry attempts
+    const phase2Config = {
       model: anthropic("claude-opus-4-6"),
       system: SYSTEM_PROMPT,
       messages: [
         ...(history ?? []),
-        {
-          role: "user",
-          content: question,
-        },
+        { role: "user" as const, content: question },
       ],
       tools: agentTools,
       stopWhen: stepCountIs(20),
-      onStepFinish: ({ toolCalls: stepToolCalls, toolResults }) => {
+      onStepFinish: ({ toolCalls: stepToolCalls, toolResults }: { toolCalls: Array<{ toolName: string; input: unknown }>; toolResults: Array<{ output: unknown }> }) => {
         stepToolCalls.forEach((tc, i) => {
           toolCalls.push({
             tool: tc.toolName,
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
           });
         });
       },
-      onFinish: async ({ text, finishReason, steps }) => {
+      onFinish: async ({ text, finishReason, steps }: { text: string; finishReason: string; steps: unknown[] }) => {
         console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}`);
         if (!conversation_id) return;
         await supabaseAdmin.from("agent_traces").insert({
@@ -77,7 +74,7 @@ export async function POST(request: Request) {
           turn_count: toolCalls.length,
         });
       },
-    });
+    };
 
     // Build a custom stream that emits our protocol lines so the client
     // can parse both tool-call events and text deltas in real time.
@@ -89,29 +86,64 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        try {
-          for await (const chunk of result.fullStream) {
-            let line: string | null = null;
-
-            if (chunk.type === "text-delta") {
-              line = `0:${JSON.stringify(chunk.delta)}\n`;
-            } else if (chunk.type === "tool-call") {
-              line = `9:${JSON.stringify({ toolName: chunk.toolName, args: chunk.input })}\n`;
-            } else if (chunk.type === "tool-result") {
-              line = `a:${JSON.stringify({ result: chunk.output })}\n`;
-            } else if (chunk.type === "finish") {
-              line = `d:{}\n`;
-            }
-
-            if (line) {
-              controller.enqueue(encoder.encode(line));
-            }
-          }
-        } catch (err) {
-          console.error("Stream error:", err);
-        } finally {
-          controller.close();
+        // Emit plan as the first stream line so the client can show pending steps immediately
+        if (plan.steps.length > 0) {
+          controller.enqueue(
+            encoder.encode(`p:${JSON.stringify({ steps: plan.steps })}\n`)
+          );
         }
+
+        // Retry loop — Anthropic returns overloaded_error transiently
+        const maxAttempts = 3;
+        let lastErr: unknown;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          if (attempt > 0) {
+            console.log(`[agent] retrying Phase 2 (attempt ${attempt + 1})...`);
+            await new Promise((r) => setTimeout(r, 2000 * attempt));
+          }
+          try {
+            const result = streamText(phase2Config);
+            for await (const chunk of result.fullStream) {
+              let line: string | null = null;
+
+              if (chunk.type === "text-delta") {
+                line = `0:${JSON.stringify(chunk.text)}\n`;
+              } else if (chunk.type === "tool-call") {
+                let parsedInput: unknown = chunk.input;
+                try { parsedInput = JSON.parse(chunk.input as string); } catch {}
+                line = `9:${JSON.stringify({ toolName: chunk.toolName, args: parsedInput })}\n`;
+              } else if (chunk.type === "tool-result") {
+                line = `a:${JSON.stringify({ result: chunk.output })}\n`;
+              } else if (chunk.type === "finish") {
+                line = `d:{}\n`;
+              }
+
+              if (line) controller.enqueue(encoder.encode(line));
+            }
+            lastErr = null;
+            break; // success
+          } catch (err) {
+            lastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            const isOverloaded = msg.toLowerCase().includes("overload") || msg.includes("529");
+            console.error(`[agent] Phase 2 attempt ${attempt + 1} failed:`, msg);
+            if (!isOverloaded) break; // don't retry non-transient errors
+          }
+        }
+
+        if (lastErr) {
+          const errMsg =
+            (lastErr instanceof Error && lastErr.message) ||
+            (typeof lastErr === "object" && lastErr !== null && "responseBody" in lastErr
+              ? String((lastErr as Record<string, unknown>).responseBody).slice(0, 200)
+              : null) ||
+            "The AI service is currently overloaded. Please try again in a moment.";
+          try {
+            controller.enqueue(encoder.encode(`e:${JSON.stringify({ message: errMsg })}\n`));
+          } catch {}
+        }
+
+        controller.close();
       },
     });
 

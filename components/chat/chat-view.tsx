@@ -26,8 +26,11 @@ function newId() {
 /**
  * Parse Vercel AI SDK data stream into AgentMessage updates.
  * Stream lines:
+ *   p:{steps}              — plan steps (pre-populate pending states)
  *   0:"text chunk"         — text delta
- *   9:{...}                — tool call / result
+ *   9:{...}                — tool call
+ *   a:{...}                — tool result
+ *   b:{...}                — tool call (alternate prefix)
  *   d:{...}                — finish event
  */
 function parseStreamLine(
@@ -38,6 +41,23 @@ function parseStreamLine(
     ...current,
     states: [...current.states],
   };
+
+  if (line.startsWith("p:")) {
+    // Plan steps — replace initial "Planning" state with pending plan steps
+    try {
+      const payload = JSON.parse(line.slice(2)) as { steps: string[] };
+      if (payload.steps?.length > 0) {
+        updated.states = payload.steps.map((step, i) => ({
+          id: `pending-${i}`,
+          label: step,
+          status: "pending" as const,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+    return { updated, done: false };
+  }
 
   if (line.startsWith("0:")) {
     // Text delta
@@ -51,23 +71,25 @@ function parseStreamLine(
   }
 
   if (line.startsWith("9:") || line.startsWith("b:")) {
-    // Tool call — mark as active state
+    // Tool call — activate the first pending state, or append a new one
     try {
       const payload = JSON.parse(line.slice(2));
       const toolName: string = payload.toolName ?? payload.tool ?? "tool";
       const input = payload.args ?? payload.input ?? {};
-      const stateId = `state-${updated.states.length}`;
-      const existingIdx = updated.states.findIndex((s) => s.id === stateId);
+      const firstPendingIdx = updated.states.findIndex((s) => s.status === "pending");
 
-      if (existingIdx >= 0) {
-        updated.states[existingIdx] = {
-          ...updated.states[existingIdx],
+      if (firstPendingIdx >= 0) {
+        updated.states[firstPendingIdx] = {
+          ...updated.states[firstPendingIdx],
           status: "active",
+          label: labelForTool(toolName, input),
           toolCall: { tool: toolName, input, output: undefined },
         };
       } else {
+        // No pending states — remove "Planning" placeholder, then append real state
+        updated.states = updated.states.filter((s) => s.id !== "planning");
         updated.states.push({
-          id: stateId,
+          id: `state-${updated.states.length}`,
           label: labelForTool(toolName, input),
           status: "active",
           toolCall: { tool: toolName, input, output: undefined },
@@ -80,11 +102,10 @@ function parseStreamLine(
   }
 
   if (line.startsWith("a:")) {
-    // Tool result
+    // Tool result — mark the last active state as done
     try {
       const payload = JSON.parse(line.slice(2));
       const output = payload.result ?? payload.output;
-      // Mark the last active state as done and attach output
       const lastActiveIdx = [...updated.states]
         .reverse()
         .findIndex((s) => s.status === "active");
@@ -97,7 +118,6 @@ function parseStreamLine(
             ? { ...updated.states[idx].toolCall!, output }
             : undefined,
         };
-        // If the tool was render_chart, capture the chart payload
         if (
           updated.states[idx].toolCall?.tool === "render_chart" &&
           output &&
@@ -110,6 +130,14 @@ function parseStreamLine(
       // ignore
     }
     return { updated, done: false };
+  }
+
+  if (line.startsWith("e:")) {
+    try {
+      const payload = JSON.parse(line.slice(2)) as { message: string };
+      updated.final_answer = payload.message;
+    } catch {}
+    return { updated, done: true };
   }
 
   if (line.startsWith("d:")) {
@@ -209,9 +237,9 @@ export function ChatView({ conversationId }: ChatViewProps) {
             : (m.content as AgentMessage).final_answer ?? "",
       }));
 
-      // Initialize empty agent message
+      // Initialize agent message with a "Planning" spinner shown immediately
       const initialAgentMsg: AgentMessage = {
-        states: [],
+        states: [{ id: "planning", label: "Planning", status: "active" }],
         final_answer: "",
       };
       setMessages((prev) => [
@@ -231,7 +259,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-        let currentAgentMsg: AgentMessage = { ...initialAgentMsg, states: [] };
+        let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
 
         while (true) {
           const { done, value } = await reader.read();
@@ -261,6 +289,23 @@ export function ChatView({ conversationId }: ChatViewProps) {
             states: currentAgentMsg.states.map((s) =>
               s.status === "active" ? { ...s, status: "done" } : s
             ),
+          };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
+            )
+          );
+        }
+
+        // Guard: if only the "planning" placeholder remains and no answer was produced,
+        // a silent Phase 2 error occurred — show an error message.
+        const hasOnlyPlanning =
+          currentAgentMsg.states.length === 1 &&
+          currentAgentMsg.states[0].id === "planning";
+        if (hasOnlyPlanning && !currentAgentMsg.final_answer) {
+          currentAgentMsg = {
+            ...currentAgentMsg,
+            final_answer: "Something went wrong. Please try again.",
           };
           setMessages((prev) =>
             prev.map((m) =>
