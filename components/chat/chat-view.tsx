@@ -111,6 +111,7 @@ function parseStreamLine(
     try {
       const payload = JSON.parse(line.slice(2)) as { message: string };
       updated.final_answer = payload.message;
+      updated.error = true;
     } catch {}
     return { updated, done: true };
   }
@@ -152,6 +153,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastQuestionRef = useRef<string>("");
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
@@ -215,6 +217,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       const userMsgId = newId();
       const agentMsgId = newId();
 
+      lastQuestionRef.current = question;
       setMessages((prev) => [
         ...prev,
         { id: userMsgId, role: "user", content: question },
@@ -297,6 +300,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
           currentAgentMsg = {
             ...currentAgentMsg,
             final_answer: "Something went wrong. Please try again.",
+            error: true,
           };
         }
 
@@ -378,6 +382,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
                   key={msg.id}
                   message={msg.content as AgentMessage}
                   isStreaming={isLoading && msg.id === lastAgentMsgId}
+                  onRetry={
+                    msg.id === lastAgentMsgId && (msg.content as AgentMessage).error
+                      ? () => handleSubmit(lastQuestionRef.current)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -388,7 +397,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       {/* Input */}
       <div className="border-t border-zinc-100 p-4 shrink-0">
         <div className="max-w-2xl mx-auto">
-          <InputBar onSubmit={handleSubmit} disabled={isLoading} />
+          <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} />
           <p className="text-xs text-zinc-400 text-center mt-2">
             Notes from past conversations are always remembered.
           </p>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, Loader2, Copy, Check } from "lucide-react";
+import { ChevronDown, Loader2, Copy, Check, RotateCcw } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ReasoningStateRow } from "@/components/chat/reasoning-state";
 import { ChartBlock } from "@/components/chat/chart-block";
 import { cn } from "@/lib/utils";
@@ -10,27 +12,18 @@ import type { AgentMessage } from "@/types";
 interface MessageAgentProps {
   message: AgentMessage;
   isStreaming?: boolean;
+  onRetry?: () => void;
 }
 
-export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
-  // null = follow default (collapsed); true/false = user manually toggled
+export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProps) {
   const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(message.final_answer ?? "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  // Reset manual override whenever a new stream starts
   useEffect(() => {
     if (isStreaming) setUserExpanded(null);
   }, [isStreaming]);
 
-  // Always collapsed by default — user opts in to see the trace
   const isExpanded = userExpanded ?? false;
-
   const hasStates = message.states.length > 0;
   const activeState = message.states.find((s) => s.status === "active");
 
@@ -48,6 +41,12 @@ export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
       : "";
     if (toolCount === 0) return `Thinking${timeStr}`;
     return `Used ${toolCount} tool${toolCount !== 1 ? "s" : ""}${timeStr}`;
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(message.final_answer ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -88,15 +87,63 @@ export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
       {/* Final answer */}
       {message.final_answer && (
         <div className="group/answer relative">
-          <p
+          <div
             className={cn(
-              "text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap",
+              "prose-answer",
               isStreaming && "streaming-cursor"
             )}
           >
-            {message.final_answer}
-          </p>
-          {!isStreaming && (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => (
+                  <p className="text-sm text-zinc-800 leading-relaxed mb-3 last:mb-0">{children}</p>
+                ),
+                ul: ({ children }) => (
+                  <ul className="text-sm text-zinc-800 list-disc pl-4 mb-3 space-y-1">{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="text-sm text-zinc-800 list-decimal pl-4 mb-3 space-y-1">{children}</ol>
+                ),
+                li: ({ children }) => (
+                  <li className="text-sm text-zinc-800 leading-relaxed">{children}</li>
+                ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-zinc-900">{children}</strong>
+                ),
+                em: ({ children }) => (
+                  <em className="italic">{children}</em>
+                ),
+                h1: ({ children }) => (
+                  <h1 className="text-base font-semibold text-zinc-900 mb-2 mt-4 first:mt-0">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-sm font-semibold text-zinc-900 mb-2 mt-4 first:mt-0">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-sm font-medium text-zinc-900 mb-1 mt-3 first:mt-0">{children}</h3>
+                ),
+                code: ({ children, className }) => {
+                  const isBlock = className?.includes("language-");
+                  return isBlock ? (
+                    <code className="block text-xs bg-zinc-50 border border-zinc-200 rounded px-3 py-2 font-mono overflow-x-auto">
+                      {children}
+                    </code>
+                  ) : (
+                    <code className="text-xs bg-zinc-100 rounded px-1 py-0.5 font-mono">{children}</code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="mb-3 last:mb-0">{children}</pre>
+                ),
+                hr: () => <hr className="border-zinc-200 my-3" />,
+              }}
+            >
+              {message.final_answer}
+            </ReactMarkdown>
+          </div>
+
+          {!isStreaming && !message.error && (
             <button
               onClick={handleCopy}
               className="absolute -bottom-5 right-0 opacity-0 group-hover/answer:opacity-100 transition-opacity flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600"
@@ -106,6 +153,16 @@ export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
               ) : (
                 <><Copy className="w-3 h-3" /> Copy</>
               )}
+            </button>
+          )}
+
+          {message.error && onRetry && !isStreaming && (
+            <button
+              onClick={onRetry}
+              className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Try again
             </button>
           )}
         </div>

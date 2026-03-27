@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,19 @@ interface InputBarProps {
 export function InputBar({ onSubmit, disabled }: InputBarProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus on mount and whenever streaming finishes (disabled: true → false)
+  const prevDisabled = useRef(disabled);
+  useEffect(() => {
+    if (prevDisabled.current && !disabled) {
+      textareaRef.current?.focus();
+    }
+    prevDisabled.current = disabled;
+  }, [disabled]);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;

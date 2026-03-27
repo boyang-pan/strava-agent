@@ -41,6 +41,7 @@ export interface AgentMessage {
   chart?: ChartPayload;
   final_answer: string;
   duration_ms?: number;
+  error?: boolean;
 }
 
 export interface Conversation {
