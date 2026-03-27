@@ -40,6 +40,7 @@ export interface AgentMessage {
   states: ReasoningState[];
   chart?: ChartPayload;
   final_answer: string;
+  duration_ms?: number;
 }
 
 export interface Conversation {

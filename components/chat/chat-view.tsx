@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageUser } from "@/components/chat/message-user";
 import { MessageAgent } from "@/components/chat/message-agent";
 import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
-import type { AgentMessage, ReasoningState, Message } from "@/types";
+import type { AgentMessage, Message } from "@/types";
 
 interface LocalMessage {
   id: string;
@@ -24,14 +23,15 @@ function newId() {
 }
 
 /**
- * Parse Vercel AI SDK data stream into AgentMessage updates.
- * Stream lines:
- *   p:{steps}              — plan steps (pre-populate pending states)
- *   0:"text chunk"         — text delta
- *   9:{...}                — tool call
- *   a:{...}                — tool result
- *   b:{...}                — tool call (alternate prefix)
- *   d:{...}                — finish event
+ * Parse stream lines into AgentMessage updates.
+ * Protocol:
+ *   p:{steps}       — plan (ignored; no longer shown as pending states)
+ *   0:"text chunk"  — text delta
+ *   9:{...}         — tool call
+ *   a:{...}         — tool result
+ *   b:{...}         — tool call (alternate prefix)
+ *   e:{message}     — error
+ *   d:{...}         — finish event
  */
 function parseStreamLine(
   line: string,
@@ -43,24 +43,11 @@ function parseStreamLine(
   };
 
   if (line.startsWith("p:")) {
-    // Plan steps — replace initial "Planning" state with pending plan steps
-    try {
-      const payload = JSON.parse(line.slice(2)) as { steps: string[] };
-      if (payload.steps?.length > 0) {
-        updated.states = payload.steps.map((step, i) => ({
-          id: `pending-${i}`,
-          label: step,
-          status: "pending" as const,
-        }));
-      }
-    } catch {
-      // ignore
-    }
+    // Plan line — ignored; we no longer pre-populate pending states
     return { updated, done: false };
   }
 
   if (line.startsWith("0:")) {
-    // Text delta
     try {
       const chunk = JSON.parse(line.slice(2)) as string;
       updated.final_answer = (updated.final_answer ?? "") + chunk;
@@ -71,30 +58,18 @@ function parseStreamLine(
   }
 
   if (line.startsWith("9:") || line.startsWith("b:")) {
-    // Tool call — activate the first pending state, or append a new one
+    // Tool call — remove "Planning" placeholder on first real tool, then append
     try {
       const payload = JSON.parse(line.slice(2));
       const toolName: string = payload.toolName ?? payload.tool ?? "tool";
       const input = payload.args ?? payload.input ?? {};
-      const firstPendingIdx = updated.states.findIndex((s) => s.status === "pending");
-
-      if (firstPendingIdx >= 0) {
-        updated.states[firstPendingIdx] = {
-          ...updated.states[firstPendingIdx],
-          status: "active",
-          label: labelForTool(toolName, input),
-          toolCall: { tool: toolName, input, output: undefined },
-        };
-      } else {
-        // No pending states — remove "Planning" placeholder, then append real state
-        updated.states = updated.states.filter((s) => s.id !== "planning");
-        updated.states.push({
-          id: `state-${updated.states.length}`,
-          label: labelForTool(toolName, input),
-          status: "active",
-          toolCall: { tool: toolName, input, output: undefined },
-        });
-      }
+      updated.states = updated.states.filter((s) => s.id !== "planning");
+      updated.states.push({
+        id: `state-${updated.states.length}`,
+        label: labelForTool(toolName, input),
+        status: "active",
+        toolCall: { tool: toolName, input, output: undefined },
+      });
     } catch {
       // ignore
     }
@@ -152,7 +127,7 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
     get_schema: "Reading the database schema",
     get_date_context: "Checking today's date",
     run_query: "Running a query",
-    get_activity_detail: `Getting activity detail`,
+    get_activity_detail: "Getting activity detail",
     get_personal_records: "Fetching personal records",
     get_notes: "Checking your notes",
     add_note: "Saving a note",
@@ -160,7 +135,6 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
     ask_user: "Asking a clarifying question",
   };
 
-  // Add specificity for run_query
   if (toolName === "run_query" && input?.sql) {
     const sql = String(input.sql).trim().toLowerCase();
     if (sql.includes("week")) return "Querying weekly data";
@@ -221,14 +195,12 @@ export function ChatView({ conversationId }: ChatViewProps) {
       const userMsgId = newId();
       const agentMsgId = newId();
 
-      // Add user message
       setMessages((prev) => [
         ...prev,
         { id: userMsgId, role: "user", content: question },
       ]);
       setIsLoading(true);
 
-      // Build history (last 10 turns)
       const history = messages.slice(-10).map((m) => ({
         role: m.role,
         content:
@@ -237,7 +209,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
             : (m.content as AgentMessage).final_answer ?? "",
       }));
 
-      // Initialize agent message with a "Planning" spinner shown immediately
+      // "Planning" spinner shown immediately while Phase 1 runs
       const initialAgentMsg: AgentMessage = {
         states: [{ id: "planning", label: "Planning", status: "active" }],
         final_answer: "",
@@ -246,6 +218,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
         ...prev,
         { id: agentMsgId, role: "assistant", content: initialAgentMsg },
       ]);
+
+      const streamStartTime = Date.now();
 
       try {
         const res = await fetch("/api/agent", {
@@ -282,23 +256,20 @@ export function ChatView({ conversationId }: ChatViewProps) {
           }
         }
 
-        // Mark all remaining active states as done
-        if (currentAgentMsg.states.some((s) => s.status === "active")) {
-          currentAgentMsg = {
-            ...currentAgentMsg,
-            states: currentAgentMsg.states.map((s) =>
-              s.status === "active" ? { ...s, status: "done" } : s
-            ),
-          };
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
-            )
-          );
-        }
+        // Record elapsed time
+        const duration_ms = Date.now() - streamStartTime;
 
-        // Guard: if only the "planning" placeholder remains and no answer was produced,
-        // a silent Phase 2 error occurred — show an error message.
+        // Mark all remaining active states as done
+        currentAgentMsg = {
+          ...currentAgentMsg,
+          duration_ms,
+          states: currentAgentMsg.states.map((s) =>
+            s.status === "active" ? { ...s, status: "done" } : s
+          ),
+        };
+
+        // Guard: if only the "planning" placeholder remains with no answer,
+        // a silent Phase 2 error occurred.
         const hasOnlyPlanning =
           currentAgentMsg.states.length === 1 &&
           currentAgentMsg.states[0].id === "planning";
@@ -307,12 +278,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
             ...currentAgentMsg,
             final_answer: "Something went wrong. Please try again.",
           };
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
-            )
-          );
         }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
+          )
+        );
 
         // Fire-and-forget title generation
         if (conversationId && !hasTitleBeenSet) {
