@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Copy, Check } from "lucide-react";
 import { ReasoningStateRow } from "@/components/chat/reasoning-state";
 import { ChartBlock } from "@/components/chat/chart-block";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,13 @@ interface MessageAgentProps {
 export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
   // null = follow default (collapsed); true/false = user manually toggled
   const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(message.final_answer ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   // Reset manual override whenever a new stream starts
   useEffect(() => {
@@ -80,14 +87,28 @@ export function MessageAgent({ message, isStreaming }: MessageAgentProps) {
 
       {/* Final answer */}
       {message.final_answer && (
-        <p
-          className={cn(
-            "text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap",
-            isStreaming && "streaming-cursor"
+        <div className="group/answer relative">
+          <p
+            className={cn(
+              "text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap",
+              isStreaming && "streaming-cursor"
+            )}
+          >
+            {message.final_answer}
+          </p>
+          {!isStreaming && (
+            <button
+              onClick={handleCopy}
+              className="absolute -bottom-5 right-0 opacity-0 group-hover/answer:opacity-100 transition-opacity flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              {copied ? (
+                <><Check className="w-3 h-3" /> Copied</>
+              ) : (
+                <><Copy className="w-3 h-3" /> Copy</>
+              )}
+            </button>
           )}
-        >
-          {message.final_answer}
-        </p>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { Activity, Plus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Activity, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -12,6 +13,8 @@ interface SidebarProps {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }
 
 function relativeTime(dateStr: string): string {
@@ -34,34 +37,91 @@ function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  onDelete,
+  onRename,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onSelect: () => void;
+  onDelete: () => void;
+  onRename: (title: string) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(conversation.title ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) inputRef.current?.select();
+  }, [isEditing]);
+
+  function startEditing() {
+    setDraft(conversation.title ?? "");
+    setIsEditing(true);
+  }
+
+  function commitRename() {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== conversation.title) {
+      onRename(trimmed);
+    }
+    setIsEditing(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") commitRename();
+    if (e.key === "Escape") setIsEditing(false);
+  }
+
   return (
-    <button
-      onClick={onSelect}
+    <div
       className={cn(
-        "w-full text-left px-3 py-2 rounded-md transition-colors",
-        isActive
-          ? "bg-zinc-100 text-zinc-900"
-          : "text-zinc-700 hover:bg-zinc-50"
+        "group relative w-full rounded-md transition-colors",
+        isActive ? "bg-zinc-100" : "hover:bg-zinc-50"
       )}
     >
-      <p
-        className={cn(
-          "text-sm truncate leading-snug",
-          isActive ? "font-medium" : "font-normal",
-          !conversation.title && "italic text-zinc-400"
-        )}
+      <button
+        onClick={onSelect}
+        onDoubleClick={startEditing}
+        className="w-full text-left px-3 py-2 pr-8"
       >
-        {conversation.title ?? "New conversation"}
-      </p>
-      <p className="text-xs text-zinc-400 mt-0.5">
-        {relativeTime(conversation.created_at)}
-      </p>
-    </button>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full text-sm bg-transparent outline-none border-b border-zinc-300 leading-snug"
+          />
+        ) : (
+          <p
+            className={cn(
+              "text-sm truncate leading-snug",
+              isActive ? "font-medium text-zinc-900" : "font-normal text-zinc-700",
+              !conversation.title && "italic text-zinc-400"
+            )}
+          >
+            {conversation.title ?? "New conversation"}
+          </p>
+        )}
+        <p className="text-xs text-zinc-400 mt-0.5">
+          {relativeTime(conversation.created_at)}
+        </p>
+      </button>
+
+      {/* Delete button — hover reveal */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-zinc-200"
+        aria-label="Delete conversation"
+      >
+        <Trash2 className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-600" />
+      </button>
+    </div>
   );
 }
 
@@ -73,7 +133,7 @@ function GroupLabel({ label }: { label: string }) {
   );
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarProps) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename }: SidebarProps) {
   const groups = groupByRecency(conversations);
 
   return (
@@ -116,6 +176,8 @@ export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarPro
                   conversation={c}
                   isActive={c.id === activeId}
                   onSelect={() => onSelect(c.id)}
+                  onDelete={() => onDelete(c.id)}
+                  onRename={(title) => onRename(c.id, title)}
                 />
               ))}
             </>
@@ -130,6 +192,8 @@ export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarPro
                   conversation={c}
                   isActive={c.id === activeId}
                   onSelect={() => onSelect(c.id)}
+                  onDelete={() => onDelete(c.id)}
+                  onRename={(title) => onRename(c.id, title)}
                 />
               ))}
             </>
@@ -144,6 +208,8 @@ export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarPro
                   conversation={c}
                   isActive={c.id === activeId}
                   onSelect={() => onSelect(c.id)}
+                  onDelete={() => onDelete(c.id)}
+                  onRename={(title) => onRename(c.id, title)}
                 />
               ))}
             </>

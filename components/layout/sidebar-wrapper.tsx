@@ -10,7 +10,6 @@ export function SidebarWrapper() {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
-  // Derive activeId from the current path
   const activeId = pathname.startsWith("/chat/")
     ? pathname.replace("/chat/", "")
     : null;
@@ -22,18 +21,33 @@ export function SidebarWrapper() {
         if (Array.isArray(data)) setConversations(data);
       })
       .catch(() => {});
-  }, [pathname]); // Re-fetch when route changes (e.g. after new conversation)
+  }, [pathname]);
 
   async function handleNew() {
     const res = await fetch("/api/conversations", { method: "POST" });
     const data = await res.json();
-    if (data?.id) {
-      router.push(`/chat/${data.id}`);
-    }
+    if (data?.id) router.push(`/chat/${data.id}`);
   }
 
   function handleSelect(id: string) {
     router.push(`/chat/${id}`);
+  }
+
+  async function handleDelete(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+    if (activeId === id) router.push("/chat");
+  }
+
+  async function handleRename(id: string, title: string) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title } : c))
+    );
+    await fetch(`/api/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
   }
 
   return (
@@ -42,6 +56,8 @@ export function SidebarWrapper() {
       activeId={activeId}
       onSelect={handleSelect}
       onNew={handleNew}
+      onDelete={handleDelete}
+      onRename={handleRename}
     />
   );
 }

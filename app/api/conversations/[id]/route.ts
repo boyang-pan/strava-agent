@@ -1,5 +1,26 @@
 import { supabaseAdmin } from "@/lib/supabase/client";
 
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  // Delete messages first, then the conversation
+  await supabaseAdmin.from("messages").delete().eq("conversation_id", id);
+
+  const { error } = await supabaseAdmin
+    .from("conversations")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return new Response(null, { status: 204 });
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
