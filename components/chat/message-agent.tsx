@@ -166,6 +166,24 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
                   <pre className="mb-3 last:mb-0">{children}</pre>
                 ),
                 hr: () => <hr className="border-zinc-200 dark:border-zinc-700 my-3" />,
+                table: ({ children }) => (
+                  <div className="overflow-x-auto mb-3">
+                    <table className="w-full text-sm border-collapse">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="border-b border-zinc-200 dark:border-zinc-700">{children}</thead>
+                ),
+                tbody: ({ children }) => <tbody>{children}</tbody>,
+                tr: ({ children }) => (
+                  <tr className="border-b border-zinc-100 dark:border-zinc-800 last:border-0">{children}</tr>
+                ),
+                th: ({ children }) => (
+                  <th className="text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide py-2 pr-4 first:pl-0">{children}</th>
+                ),
+                td: ({ children }) => (
+                  <td className="text-sm text-zinc-800 dark:text-zinc-200 py-1.5 pr-4 first:pl-0 whitespace-nowrap">{children}</td>
+                ),
               }}
             >
               {message.final_answer}
