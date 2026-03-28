@@ -263,7 +263,10 @@ export const agentTools = {
 };
 
 function isSafeQuery(sql: string): boolean {
-  const normalized = sql.trim().toUpperCase();
+  // Strip leading -- line comments before the keyword check so queries that
+  // start with a comment (e.g. "-- explanation\nWITH ...") are accepted.
+  const stripped = sql.replace(/^(\s*--[^\n]*\n)+/g, "").trim();
+  const normalized = stripped.toUpperCase();
   if (!normalized.startsWith("SELECT") && !normalized.startsWith("WITH")) {
     return false;
   }
