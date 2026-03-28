@@ -1,16 +1,17 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface InputBarProps {
   onSubmit: (value: string) => void;
   disabled?: boolean;
+  onStop?: () => void;
 }
 
-export function InputBar({ onSubmit, disabled }: InputBarProps) {
+export function InputBar({ onSubmit, disabled, onStop }: InputBarProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -76,16 +77,28 @@ export function InputBar({ onSubmit, disabled }: InputBarProps) {
           "disabled:opacity-50"
         )}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={handleSubmit}
-        disabled={!value.trim() || disabled}
-        className="shrink-0 h-8 w-8 text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-30"
-      >
-        <ArrowUp className="w-4 h-4" />
-      </Button>
+      {disabled && onStop ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onStop}
+          className="shrink-0 h-8 w-8 text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          <Square className="w-4 h-4" />
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={handleSubmit}
+          disabled={!value.trim() || disabled}
+          className="shrink-0 h-8 w-8 text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-30"
+        >
+          <ArrowUp className="w-4 h-4" />
+        </Button>
+      )}
     </div>
   );
 }

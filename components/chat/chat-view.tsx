@@ -165,6 +165,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [titleDraft, setTitleDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastQuestionRef = useRef<string>("");
+  const abortControllerRef = useRef<AbortController | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing messages + title when conversationId changes
@@ -285,12 +286,17 @@ export function ChatView({ conversationId }: ChatViewProps) {
       ]);
 
       const streamStartTime = Date.now();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
 
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question, history, conversation_id: conversationId }),
+          signal: controller.signal,
         });
 
         if (!res.ok || !res.body) throw new Error("Stream failed");
@@ -298,7 +304,6 @@ export function ChatView({ conversationId }: ChatViewProps) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-        let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
 
         while (true) {
           const { done, value } = await reader.read();
@@ -371,26 +376,49 @@ export function ChatView({ conversationId }: ChatViewProps) {
             .catch(() => {});
         }
       } catch (err) {
-        console.error("Agent stream error:", err);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === agentMsgId
-              ? {
-                  ...m,
-                  content: {
-                    states: [],
-                    final_answer: "Something went wrong. Please try again.",
-                  } as AgentMessage,
-                }
-              : m
-          )
-        );
+        if (err instanceof Error && err.name === "AbortError") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === agentMsgId
+                ? {
+                    ...m,
+                    content: {
+                      ...currentAgentMsg,
+                      states: currentAgentMsg.states.map((s) =>
+                        s.status === "active" ? { ...s, status: "done" } : s
+                      ),
+                      final_answer: currentAgentMsg.final_answer || "*(stopped)*",
+                    } as AgentMessage,
+                  }
+                : m
+            )
+          );
+        } else {
+          console.error("Agent stream error:", err);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === agentMsgId
+                ? {
+                    ...m,
+                    content: {
+                      states: [],
+                      final_answer: "Something went wrong. Please try again.",
+                    } as AgentMessage,
+                  }
+                : m
+            )
+          );
+        }
       } finally {
         setIsLoading(false);
       }
     },
     [isLoading, messages, conversationId, hasTitleBeenSet]
   );
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const lastAgentMsgId =
     messages.filter((m) => m.role === "assistant").at(-1)?.id ?? null;
@@ -491,7 +519,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       {/* Input */}
       <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 shrink-0">
         <div className="max-w-2xl mx-auto">
-          <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} />
+          <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} onStop={handleStop} />
           <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center mt-2">
             Notes from past conversations are always remembered.
           </p>
