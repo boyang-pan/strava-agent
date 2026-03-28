@@ -277,7 +277,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         content:
           typeof m.content === "string"
             ? m.content
-            : (m.content as AgentMessage).final_answer ?? "",
+            : (m.content as AgentMessage).final_answer || "I encountered an error processing this request.",
       }));
 
       // "Planning" spinner shown immediately while Phase 1 runs
@@ -343,12 +343,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
           ),
         };
 
-        // Guard: if only the "planning" placeholder remains with no answer,
-        // a silent Phase 2 error occurred.
-        const hasOnlyPlanning =
-          currentAgentMsg.states.length === 1 &&
-          currentAgentMsg.states[0].id === "planning";
-        if (hasOnlyPlanning && !currentAgentMsg.final_answer) {
+        // Guard: ensure final_answer is never empty before persisting.
+        // An empty string would cause Anthropic API errors in subsequent turns
+        // when this message is included in history.
+        if (!currentAgentMsg.final_answer) {
           currentAgentMsg = {
             ...currentAgentMsg,
             final_answer: "Something went wrong. Please try again.",
