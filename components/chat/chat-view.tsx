@@ -357,6 +357,20 @@ export function ChatView({ conversationId }: ChatViewProps) {
           )
         );
 
+        // Fire-and-forget message persistence
+        if (conversationId) {
+          fetch(`/api/conversations/${conversationId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: [
+                { role: "user", content: question },
+                { role: "assistant", content: currentAgentMsg },
+              ],
+            }),
+          }).catch(() => {});
+        }
+
         // Fire-and-forget title generation
         if (conversationId && !hasTitleBeenSet) {
           setHasTitleBeenSet(true);
