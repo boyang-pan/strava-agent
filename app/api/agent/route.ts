@@ -43,12 +43,25 @@ export async function POST(request: Request) {
     }> = [];
 
     // Phase 2 config — shared across retry attempts
+    // Inject the Phase 1 plan as a synthetic assistant prefill so the model
+    // skips re-planning and proceeds directly to tool calls.
+    const planPrefill =
+      plan.steps.length > 0
+        ? [
+            {
+              role: "assistant" as const,
+              content: `My plan:\n${plan.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n\nExecuting now.`,
+            },
+          ]
+        : [];
+
     const phase2Config = {
       model: anthropic("claude-opus-4-6"),
       system: SYSTEM_PROMPT,
       messages: [
         ...(history ?? []),
         { role: "user" as const, content: question },
+        ...planPrefill,
       ],
       tools: agentTools,
       stopWhen: stepCountIs(20),

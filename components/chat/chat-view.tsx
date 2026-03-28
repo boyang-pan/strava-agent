@@ -52,7 +52,12 @@ function parseStreamLine(
   };
 
   if (line.startsWith("p:")) {
-    // Plan line — ignored; we no longer pre-populate pending states
+    try {
+      const payload = JSON.parse(line.slice(2)) as { steps: string[] };
+      if (Array.isArray(payload.steps)) {
+        updated.plan = { steps: payload.steps };
+      }
+    } catch {}
     return { updated, done: false };
   }
 

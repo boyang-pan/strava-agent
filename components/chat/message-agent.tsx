@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, Loader2, Copy, Check, RotateCcw } from "lucide-react";
+import { ChevronDown, Loader2, Copy, Check, RotateCcw, ListChecks } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ReasoningStateRow } from "@/components/chat/reasoning-state";
@@ -17,6 +17,7 @@ interface MessageAgentProps {
 
 export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProps) {
   const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  const [planExpanded, setPlanExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -51,6 +52,34 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
 
   return (
     <div className="mb-6">
+      {/* Collapsible plan */}
+      {message.plan && message.plan.steps.length > 0 && (
+        <div className="mb-2">
+          <button
+            onClick={() => setPlanExpanded((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1 group"
+          >
+            <ChevronDown
+              className={cn(
+                "w-3 h-3 transition-transform",
+                !planExpanded && "-rotate-90"
+              )}
+            />
+            <ListChecks className="w-3 h-3" />
+            <span>Plan</span>
+          </button>
+          {planExpanded && (
+            <ol className="ml-5 flex flex-col gap-0.5 list-decimal">
+              {message.plan.steps.map((step, i) => (
+                <li key={i} className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+
       {/* Collapsible reasoning steps */}
       {hasStates && (
         <div className="mb-3">
