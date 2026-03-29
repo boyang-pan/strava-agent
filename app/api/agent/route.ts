@@ -4,6 +4,7 @@ import { z } from "zod";
 import { agentTools } from "@/lib/agent/tools";
 import { SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { logger } from "@/lib/braintrust";
 
 export const maxDuration = 800;
 
@@ -14,6 +15,8 @@ const planSchema = z.object({
 export async function POST(request: Request) {
   try {
     const { question, history, conversation_id } = await request.json();
+
+    const span = logger.startSpan({ name: "agent-turn" });
 
     // Phase 1 — produce a structured plan before any tool calls
     let plan: { steps: string[] } = { steps: [] };
@@ -62,8 +65,36 @@ export async function POST(request: Request) {
           });
         });
       },
-      onFinish: async ({ text, finishReason, steps }: { text: string; finishReason: string; steps: unknown[] }) => {
+      onFinish: async ({
+        text,
+        finishReason,
+        steps,
+        usage,
+      }: {
+        text: string;
+        finishReason: string;
+        steps: unknown[];
+        usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+      }) => {
         console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}`);
+
+        span.log({
+          input: question,
+          output: text,
+          metadata: {
+            finishReason,
+            stepCount: steps.length,
+            toolNames: toolCalls.map((tc) => tc.tool),
+            plan: plan.steps,
+          },
+          metrics: {
+            prompt_tokens: usage?.promptTokens,
+            completion_tokens: usage?.completionTokens,
+            tokens: usage?.totalTokens,
+          },
+        });
+        span.end();
+
         if (!conversation_id) return;
         await supabaseAdmin.from("agent_traces").insert({
           conversation_id,
