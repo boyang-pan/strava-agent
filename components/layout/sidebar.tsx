@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn, groupByRecency } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Conversation } from "@/types";
 
 interface SidebarProps {
@@ -158,6 +159,49 @@ function GroupLabel({ label }: { label: string }) {
   );
 }
 
+function syncDotColor(lastSyncedAt: string): string {
+  const diffHours = (Date.now() - new Date(lastSyncedAt).getTime()) / 3600000;
+  if (diffHours < 24) return "bg-green-500";
+  if (diffHours < 72) return "bg-amber-500";
+  return "bg-red-500";
+}
+
+function SyncStatus() {
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/sync-status")
+      .then((r) => r.json())
+      .then((d) => setLastSyncedAt(d.lastSyncedAt));
+  }, []);
+
+  if (!lastSyncedAt) {
+    return <p className="text-xs text-zinc-400 dark:text-zinc-500">strava agent</p>;
+  }
+
+  const tooltipText = new Date(lastSyncedAt).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5 cursor-default">
+          <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${syncDotColor(lastSyncedAt)}`} />
+          {`synced ${relativeTime(lastSyncedAt)}`}
+        </p>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p>Last synced: {tooltipText}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -281,7 +325,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">strava agent</p>
+        <SyncStatus />
         <ThemeToggle />
       </div>
     </div>
