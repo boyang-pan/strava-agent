@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 
     // Phase 1 — produce a structured plan before any tool calls
     let plan: { steps: string[] } = { steps: [] };
+    const planSpan = span.startSpan({ name: "plan" });
     try {
       const { object } = await generateObject({
         model: anthropic("claude-opus-4-6"),
@@ -34,8 +35,11 @@ export async function POST(request: Request) {
         ],
       });
       plan = object;
+      planSpan.log({ input: question, output: plan.steps });
     } catch (planErr) {
       console.error("Planning phase failed:", planErr);
+    } finally {
+      planSpan.end();
     }
 
     const toolCalls: Array<{
@@ -57,6 +61,13 @@ export async function POST(request: Request) {
       stopWhen: stepCountIs(20),
       onStepFinish: ({ toolCalls: stepToolCalls, toolResults }: { toolCalls: Array<{ toolName: string; input: unknown }>; toolResults: Array<{ output: unknown }> }) => {
         stepToolCalls.forEach((tc, i) => {
+          const toolSpan = span.startSpan({ name: `tool:${tc.toolName}` });
+          toolSpan.log({
+            input: tc.input,
+            output: toolResults[i]?.output ?? null,
+          });
+          toolSpan.end();
+
           toolCalls.push({
             tool: tc.toolName,
             input: tc.input,
@@ -91,6 +102,11 @@ export async function POST(request: Request) {
             prompt_tokens: usage?.promptTokens,
             completion_tokens: usage?.completionTokens,
             tokens: usage?.totalTokens,
+            tool_error_count: toolCalls.filter((tc) => {
+              const out = tc.output as Record<string, unknown> | null;
+              return out !== null && typeof out === "object" && "error" in out;
+            }).length,
+            tool_call_count: toolCalls.length,
           },
         });
         span.end();

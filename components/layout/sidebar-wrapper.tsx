@@ -23,6 +23,17 @@ export function SidebarWrapper() {
       .catch(() => {});
   }, [pathname]);
 
+  useEffect(() => {
+    function handleRenamed(e: Event) {
+      const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title } : c))
+      );
+    }
+    window.addEventListener("conversation:renamed", handleRenamed);
+    return () => window.removeEventListener("conversation:renamed", handleRenamed);
+  }, []);
+
   async function handleNew() {
     const res = await fetch("/api/conversations", { method: "POST" });
     const data = await res.json();

@@ -54,9 +54,24 @@ async function loadDataset() {
 
 Eval("strava-agent", {
   data: loadDataset,
-  // Replay mode: output is already known. Task is identity — returns
-  // the trace data so scorers can read it from `output`.
-  task: async (input) => input,
+  // Replay mode: output is already known. Task echoes input as output so
+  // scorers can read it, and logs tool error metrics on the span.
+  task: async (input, { span }) => {
+    const toolCalls = (input as { tool_calls: Array<{ output: unknown }> }).tool_calls ?? [];
+    const errorCount = toolCalls.filter((tc) => {
+      const out = tc.output as Record<string, unknown> | null;
+      return out !== null && typeof out === "object" && "error" in out;
+    }).length;
+    if (toolCalls.length > 0) {
+      span.log({
+        metrics: {
+          tool_error_count: errorCount,
+          tool_call_count: toolCalls.length,
+        },
+      });
+    }
+    return input;
+  },
   scores: [
     schemaBeforeQuery,
     schemaLeadsToQuery,
