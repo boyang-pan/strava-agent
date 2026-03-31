@@ -4,13 +4,12 @@ import * as path from "path";
 // Load .env.local from project root (same as Next.js does)
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
 
-import { Eval } from "braintrust";
+import { Eval, initFunction } from "braintrust";
 import { createClient } from "@supabase/supabase-js";
 import {
   schemaBeforeQuery,
   schemaLeadsToQuery,
   dateContextForTimeQuestions,
-  unitConversionInSQL,
 } from "./scorers";
 
 type ToolCall = { tool: string; input: unknown; output: unknown; duration_ms: number };
@@ -58,7 +57,12 @@ Eval("strava-agent", {
   // Replay mode: output is already known. Task is identity — returns
   // the trace data so scorers can read it from `output`.
   task: async (input) => input,
-  scores: [schemaBeforeQuery, schemaLeadsToQuery, dateContextForTimeQuestions, unitConversionInSQL],
-  experimentName: "phase1-deterministic",
+  scores: [
+    schemaBeforeQuery,
+    schemaLeadsToQuery,
+    dateContextForTimeQuestions,
+    initFunction({ projectName: "strava-agent", slug: "unitconversioninsql-dfca" }),
+  ],
+  experimentName: "phase1-deterministic-fixed-scorer",
   trialCount: 1,
 });

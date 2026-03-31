@@ -5,7 +5,6 @@ import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClo
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -265,7 +264,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
       <Separator className="bg-zinc-100 dark:bg-zinc-800" />
 
       {/* Conversation list */}
-      <ScrollArea className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <div className="px-1.5 pb-2">
           {conversations.length === 0 && (
             <p className="text-xs text-zinc-400 dark:text-zinc-500 px-3 pt-4 text-center">
@@ -321,7 +320,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">

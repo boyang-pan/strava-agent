@@ -7,7 +7,7 @@ import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
 import type { AgentMessage, Conversation, Message } from "@/types";
 import { useSidebar } from "@/components/layout/resizable-layout";
-import { PanelLeftOpen, Pencil, ChevronDown, Trash2 } from "lucide-react";
+import { Activity, PanelLeftOpen, Pencil, ChevronDown, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -164,6 +164,7 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
 export function ChatView({ conversationId }: ChatViewProps) {
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -182,6 +183,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
     if (!conversationId) return;
 
     // Fetch messages
+    setIsLoadingHistory(true);
     fetch(`/api/conversations/${conversationId}`)
       .then((r) => r.json())
       .then((data: Message[]) => {
@@ -199,7 +201,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
         setMessages(loaded);
         if (loaded.length > 0) setHasTitleBeenSet(true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoadingHistory(false));
 
     // Fetch title for this conversation
     fetch("/api/conversations")
@@ -503,7 +506,12 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-        {messages.length === 0 ? (
+        {isLoadingHistory ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
+            <Activity className="w-8 h-8 text-zinc-200 dark:text-zinc-700 animate-pulse" />
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">Loading conversation...</p>
+          </div>
+        ) : messages.length === 0 ? (
           <EmptyState onPrompt={handleSubmit} />
         ) : (
           <div className="max-w-2xl mx-auto px-6 py-6">
