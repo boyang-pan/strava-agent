@@ -391,7 +391,12 @@ export function ChatView({ conversationId }: ChatViewProps) {
           })
             .then((r) => r.json())
             .then((data) => {
-              if (data?.title) setConversationTitle(data.title);
+              if (data?.title) {
+                setConversationTitle(data.title);
+                window.dispatchEvent(
+                  new CustomEvent("conversation:renamed", { detail: { id: conversationId, title: data.title } })
+                );
+              }
             })
             .catch(() => {});
         }
