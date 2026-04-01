@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     }> = [];
 
     // Phase 2 config — shared across retry attempts
+    const answerSpan = span.startSpan({ name: "answer" });
     const phase2Config = {
       model: anthropic("claude-opus-4-6"),
       system: SYSTEM_PROMPT,
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
       stopWhen: stepCountIs(20),
       onStepFinish: ({ toolCalls: stepToolCalls, toolResults }: { toolCalls: Array<{ toolName: string; input: unknown }>; toolResults: Array<{ output: unknown }> }) => {
         stepToolCalls.forEach((tc, i) => {
-          const toolSpan = span.startSpan({ name: `tool:${tc.toolName}` });
+          const toolSpan = answerSpan.startSpan({ name: `tool:${tc.toolName}` });
           toolSpan.log({
             input: tc.input,
             output: toolResults[i]?.output ?? null,
@@ -89,27 +90,35 @@ export async function POST(request: Request) {
       }) => {
         console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}`);
 
-        span.log({
+        const toolErrorCount = toolCalls.filter((tc) => {
+          const out = tc.output as Record<string, unknown> | null;
+          return out !== null && typeof out === "object" && "error" in out;
+        }).length;
+
+        answerSpan.log({
           input: question,
           output: text,
+          metrics: {
+            prompt_tokens: usage?.promptTokens,
+            completion_tokens: usage?.completionTokens,
+            tokens: usage?.totalTokens,
+            tool_error_count: toolErrorCount,
+            tool_call_count: toolCalls.length,
+          },
+        });
+        answerSpan.end();
+
+        span.log({
+          input: question,
           metadata: {
             finishReason,
             stepCount: steps.length,
             toolNames: toolCalls.map((tc) => tc.tool),
             plan: plan.steps,
           },
-          metrics: {
-            prompt_tokens: usage?.promptTokens,
-            completion_tokens: usage?.completionTokens,
-            tokens: usage?.totalTokens,
-            tool_error_count: toolCalls.filter((tc) => {
-              const out = tc.output as Record<string, unknown> | null;
-              return out !== null && typeof out === "object" && "error" in out;
-            }).length,
-            tool_call_count: toolCalls.length,
-          },
         });
         span.end();
+        await logger.flush();
 
         if (!conversation_id) return;
         await supabaseAdmin.from("agent_traces").insert({
