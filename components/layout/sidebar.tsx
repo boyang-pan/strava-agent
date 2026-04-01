@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClose } from "lucide-react";
+import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClose, LogOut } from "lucide-react";
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ interface SidebarProps {
   onNew: () => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  userEmail?: string | null;
+  onLogout?: () => void;
 }
 
 function relativeTime(dateStr: string): string {
@@ -158,46 +160,115 @@ function GroupLabel({ label }: { label: string }) {
   );
 }
 
-function syncDotColor(lastSyncedAt: string): string {
-  const diffHours = (Date.now() - new Date(lastSyncedAt).getTime()) / 3600000;
-  if (diffHours < 24) return "bg-green-500";
-  if (diffHours < 72) return "bg-amber-500";
-  return "bg-red-500";
+interface SyncJob {
+  phase: number;
+  status: "running" | "completed" | "failed";
+  total: number | null;
+  synced: number;
+  error: string | null;
+  started_at: string;
+  updated_at: string;
+}
+
+interface SyncData {
+  phase1: SyncJob | null;
+  phase2: SyncJob | null;
+}
+
+function PhaseRow({ label, job }: { label: string; job: SyncJob }) {
+  const { status, synced, total } = job;
+
+  if (status === "failed") {
+    return (
+      <p className="text-xs text-red-500 dark:text-red-400">
+        {label}: sync failed
+      </p>
+    );
+  }
+
+  if (status === "completed") {
+    return (
+      <p className="text-xs text-zinc-400 dark:text-zinc-500">
+        <span className="text-green-500 mr-1">✓</span>
+        {label}: {synced.toLocaleString()} activities
+      </p>
+    );
+  }
+
+  // running
+  const pct = total && total > 0 ? Math.round((synced / total) * 100) : null;
+  const label2 = label === "Phase 2" && total
+    ? (() => {
+        const remaining = total - synced;
+        const etaMins = Math.ceil((remaining / 100) * 15);
+        return etaMins > 60
+          ? `~${Math.ceil(etaMins / 60)}h left`
+          : `~${etaMins}m left`;
+      })()
+    : null;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
+          {label2 && <span className="ml-1 text-zinc-400 dark:text-zinc-600">{label2}</span>}
+        </p>
+      </div>
+      <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-orange-500 rounded-full transition-all duration-500"
+          style={{ width: pct !== null ? `${pct}%` : "5%" }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function SyncStatus() {
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [data, setData] = useState<SyncData | null>(null);
 
-  useEffect(() => {
+  const fetchStatus = () => {
     fetch("/api/sync-status")
       .then((r) => r.json())
-      .then((d) => setLastSyncedAt(d.lastSyncedAt));
+      .then((d: SyncData) => setData(d))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchStatus();
   }, []);
 
-  if (!lastSyncedAt) {
+  useEffect(() => {
+    if (!data) return;
+    const anyRunning = data.phase1?.status === "running" || data.phase2?.status === "running";
+    if (!anyRunning) return;
+    const id = setInterval(fetchStatus, 5000);
+    return () => clearInterval(id);
+  }, [data]);
+
+  if (!data || (!data.phase1 && !data.phase2)) {
     return <p className="text-xs text-zinc-400 dark:text-zinc-500">strava agent</p>;
   }
 
-  const tooltipText = new Date(lastSyncedAt).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const { phase1, phase2 } = data;
+
+  // Both completed
+  if (phase1?.status === "completed" && phase2?.status === "completed") {
+    return (
+      <p className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1">
+        <span className="text-green-500">✓</span>
+        All data synced
+      </p>
+    );
+  }
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5 cursor-default">
-          <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${syncDotColor(lastSyncedAt)}`} />
-          {`synced ${relativeTime(lastSyncedAt)}`}
-        </p>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <p>Last synced: {tooltipText}</p>
-      </TooltipContent>
-    </Tooltip>
+    <div className="w-full space-y-2">
+      {phase1 && <PhaseRow label="Phase 1" job={phase1} />}
+      {phase2 && <PhaseRow label="Phase 2" job={phase2} />}
+    </div>
   );
 }
 
@@ -228,7 +299,7 @@ function ThemeToggle() {
   );
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename }: SidebarProps) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, onLogout }: SidebarProps) {
   const groups = groupByRecency(conversations);
   const sidebar = useSidebar();
 
@@ -323,9 +394,27 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-        <SyncStatus />
-        <ThemeToggle />
+      <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+        {userEmail && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate flex-1 min-w-0 mr-2">
+              {userEmail}
+            </p>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                className="shrink-0 p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <SyncStatus />
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

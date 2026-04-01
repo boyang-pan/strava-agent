@@ -1,9 +1,10 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, generateObject, stepCountIs } from "ai";
 import { z } from "zod";
-import { agentTools } from "@/lib/agent/tools";
+import { createAgentTools } from "@/lib/agent/tools";
 import { SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { getAuthUser } from "@/lib/supabase/server";
 import { logger } from "@/lib/braintrust";
 
 export const maxDuration = 800;
@@ -14,7 +15,16 @@ const planSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { question, history, conversation_id } = await request.json();
+
+    const userId = user.id;
+    const agentTools = createAgentTools(userId);
+    const systemPrompt = `${SYSTEM_PROMPT}\n\nCurrent user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`;
 
     const span = logger.startSpan({ name: "agent-turn" });
 
@@ -25,7 +35,7 @@ export async function POST(request: Request) {
       const { object } = await generateObject({
         model: anthropic("claude-opus-4-6"),
         schema: planSchema,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: [
           ...(history ?? []),
           {
@@ -53,7 +63,7 @@ export async function POST(request: Request) {
     const answerSpan = span.startSpan({ name: "answer" });
     const phase2Config = {
       model: anthropic("claude-opus-4-6"),
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [
         ...(history ?? []),
         { role: "user" as const, content: question },
@@ -86,7 +96,7 @@ export async function POST(request: Request) {
         text: string;
         finishReason: string;
         steps: unknown[];
-        usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+        usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
       }) => {
         console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}`);
 
@@ -99,8 +109,8 @@ export async function POST(request: Request) {
           input: question,
           output: text,
           metrics: {
-            prompt_tokens: usage?.promptTokens,
-            completion_tokens: usage?.completionTokens,
+            prompt_tokens: usage?.inputTokens,
+            completion_tokens: usage?.outputTokens,
             tokens: usage?.totalTokens,
             tool_error_count: toolErrorCount,
             tool_call_count: toolCalls.length,
@@ -122,6 +132,7 @@ export async function POST(request: Request) {
 
         if (!conversation_id) return;
         await supabaseAdmin.from("agent_traces").insert({
+          user_id: userId,
           conversation_id,
           question,
           plan,
