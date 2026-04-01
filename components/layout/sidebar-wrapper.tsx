@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 import { Sidebar } from "@/components/layout/sidebar";
 import type { Conversation } from "@/types";
 
@@ -9,6 +10,19 @@ export function SidebarWrapper() {
   const router = useRouter();
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeId = pathname.startsWith("/chat/")
     ? pathname.replace("/chat/", "")
@@ -62,6 +76,12 @@ export function SidebarWrapper() {
     });
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <Sidebar
       conversations={conversations}
@@ -70,6 +90,8 @@ export function SidebarWrapper() {
       onNew={handleNew}
       onDelete={handleDelete}
       onRename={handleRename}
+      userEmail={userEmail}
+      onLogout={handleLogout}
     />
   );
 }
