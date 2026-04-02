@@ -11,6 +11,23 @@ const RATE_LIMIT_15MIN = 100;
 const RATE_LIMIT_DAILY = 1000;
 const BACKOFF_THRESHOLD = 0.85;
 
+interface StravaSegmentEffort {
+  id: number;
+  segment: { id: number };
+  name: string;
+  elapsed_time: number;
+  moving_time: number;
+  start_date: string;
+  distance: number;
+  average_watts?: number | null;
+  average_heartrate?: number | null;
+  max_heartrate?: number | null;
+  average_cadence?: number | null;
+  pr_rank?: number | null;
+  kom_rank?: number | null;
+  achievements?: unknown[];
+}
+
 function parseRateLimitUsage(header: string | null): { used: number; limit: number } {
   if (!header) return { used: 0, limit: RATE_LIMIT_15MIN };
   const [used, limit] = header.split(",").map(Number);
@@ -22,8 +39,8 @@ async function fetchDetailedActivity(token: string, activityId: number) {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  if (res.status === 429) return { error: "rate_limited" as const, rateLimitUsage: null };
-  if (!res.ok) return { error: `${res.status}` as const, rateLimitUsage: null };
+  if (res.status === 429) return { error: "rate_limited" as const, rateLimitUsage: null, segmentEfforts: [] };
+  if (!res.ok) return { error: `${res.status}` as const, rateLimitUsage: null, segmentEfforts: [] };
 
   const data = await res.json();
   return {
@@ -33,6 +50,7 @@ async function fetchDetailedActivity(token: string, activityId: number) {
       max_watts: data.max_watts ?? null,
       description: data.description ?? null,
     },
+    segmentEfforts: (data.segment_efforts ?? []) as StravaSegmentEffort[],
     rateLimitUsage: res.headers.get("X-RateLimit-Usage"),
   };
 }
@@ -119,6 +137,31 @@ export async function syncStravaActivitiesPhase2(userId: string): Promise<void> 
         })
         .eq("user_id", userId)
         .eq("id", activityId);
+
+      if (result.segmentEfforts.length > 0) {
+        const rows = result.segmentEfforts.map((se) => ({
+          id: se.id,
+          user_id: userId,
+          activity_id: activityId as number,
+          segment_id: se.segment.id,
+          name: se.name,
+          elapsed_time: se.elapsed_time,
+          moving_time: se.moving_time,
+          start_date: se.start_date,
+          distance: se.distance,
+          average_watts: se.average_watts ?? null,
+          average_heartrate: se.average_heartrate ?? null,
+          max_heartrate: se.max_heartrate ?? null,
+          average_cadence: se.average_cadence ?? null,
+          pr_rank: se.pr_rank ?? null,
+          kom_rank: se.kom_rank ?? null,
+          achievements: se.achievements ? JSON.stringify(se.achievements) : null,
+        }));
+        const { error: seError } = await supabaseAdmin
+          .from("segment_efforts")
+          .upsert(rows, { onConflict: "user_id,id" });
+        if (seError) console.warn(`[sync-p2] segment efforts error for activity ${activityId}:`, seError.message);
+      }
 
       synced++;
 
