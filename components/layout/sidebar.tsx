@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClose, LogOut } from "lucide-react";
+import { Activity, Plus, Trash2, Pencil, MoreHorizontal, Sun, Moon, PanelLeftClose, Settings, ChevronRight } from "lucide-react";
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface SidebarProps {
   onRename: (id: string, title: string) => void;
   userEmail?: string | null;
   onLogout?: () => void;
+  onOpenModal?: (tab: "sync" | "settings") => void;
 }
 
 function relativeTime(dateStr: string): string {
@@ -178,33 +179,19 @@ interface SyncData {
 function PhaseRow({ label, job }: { label: string; job: SyncJob }) {
   const { status, synced, total } = job;
 
-  if (status === "failed") {
-    return (
-      <p className="text-xs text-red-500 dark:text-red-400">
-        {label}: sync failed
-      </p>
-    );
-  }
-
   if (status === "completed") {
     return (
-      <p className="text-xs text-zinc-400 dark:text-zinc-500">
-        <span className="text-green-500 mr-1">✓</span>
-        {label}: {synced.toLocaleString()} activities
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+        <p className="text-xs text-green-500">{synced.toLocaleString()} ✓</p>
+      </div>
     );
   }
 
-  // running
   const pct = total && total > 0 ? Math.round((synced / total) * 100) : null;
-  const label2 = label === "Phase 2" && total
-    ? (() => {
-        const remaining = total - synced;
-        const etaMins = Math.ceil((remaining / 100) * 15);
-        return etaMins > 60
-          ? `~${Math.ceil(etaMins / 60)}h left`
-          : `~${etaMins}m left`;
-      })()
+  const etaMins = total ? Math.ceil(((total - synced) / 100) * 15) : null;
+  const eta = etaMins && etaMins > 0
+    ? etaMins > 60 ? `~${Math.ceil(etaMins / 60)}h left` : `~${etaMins}m left`
     : null;
 
   return (
@@ -212,21 +199,26 @@ function PhaseRow({ label, job }: { label: string; job: SyncJob }) {
       <div className="flex items-center justify-between">
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
-          {label2 && <span className="ml-1 text-zinc-400 dark:text-zinc-600">{label2}</span>}
+          {status === "failed"
+            ? "failed"
+            : total
+              ? `${synced.toLocaleString()} / ${total.toLocaleString()}${eta ? ` · ${eta}` : ""}`
+              : `${synced.toLocaleString()}…`}
         </p>
       </div>
-      <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-orange-500 rounded-full transition-all duration-500"
-          style={{ width: pct !== null ? `${pct}%` : "5%" }}
-        />
-      </div>
+      {status !== "failed" && (
+        <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-orange-500 rounded-full transition-all duration-500"
+            style={{ width: pct !== null ? `${pct}%` : "5%" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function SyncStatus() {
+function SyncCard({ onViewDetails }: { onViewDetails: () => void }) {
   const [data, setData] = useState<SyncData | null>(null);
 
   const fetchStatus = () => {
@@ -236,9 +228,7 @@ function SyncStatus() {
       .catch(() => {});
   };
 
-  useEffect(() => {
-    fetchStatus();
-  }, []);
+  useEffect(() => { fetchStatus(); }, []);
 
   useEffect(() => {
     if (!data) return;
@@ -248,26 +238,58 @@ function SyncStatus() {
     return () => clearInterval(id);
   }, [data]);
 
-  if (!data || (!data.phase1 && !data.phase2)) {
-    return <p className="text-xs text-zinc-400 dark:text-zinc-500">strava agent</p>;
-  }
+  if (!data || (!data.phase1 && !data.phase2)) return null;
 
   const { phase1, phase2 } = data;
+  const anyFailed = phase1?.status === "failed" || phase2?.status === "failed";
+  const allDone = phase1?.status === "completed" && phase2?.status === "completed";
 
-  // Both completed
-  if (phase1?.status === "completed" && phase2?.status === "completed") {
+  if (allDone) {
+    const lastSync = phase2?.updated_at ?? phase1?.updated_at;
+    const dateLabel = lastSync
+      ? new Date(lastSync).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "";
     return (
-      <p className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1">
-        <span className="text-green-500">✓</span>
-        All data synced
-      </p>
+      <div className="px-3 pb-2">
+        <button
+          onClick={onViewDetails}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors group"
+        >
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
+            <span className="text-green-500">✓</span>
+            All data synced{dateLabel && ` · ${dateLabel}`}
+          </span>
+          <ChevronRight className="w-3 h-3 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="w-full space-y-2">
-      {phase1 && <PhaseRow label="Phase 1" job={phase1} />}
-      {phase2 && <PhaseRow label="Phase 2" job={phase2} />}
+    <div className="px-3 pb-2">
+      <button
+        onClick={onViewDetails}
+        className={cn(
+          "w-full text-left px-3 py-3 rounded-lg border transition-colors space-y-2.5 group",
+          anyFailed
+            ? "border-red-200 dark:border-red-900 hover:border-red-300 dark:hover:border-red-800"
+            : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <span className={cn(
+            "text-xs font-medium",
+            anyFailed ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
+          )}>
+            {anyFailed ? "⚠ Sync failed" : "Syncing your data"}
+          </span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+            View details ›
+          </span>
+        </div>
+        {phase1 && <PhaseRow label="Activities" job={phase1} />}
+        {phase2 && <PhaseRow label="Enrichment" job={phase2} />}
+      </button>
     </div>
   );
 }
@@ -299,7 +321,7 @@ function ThemeToggle() {
   );
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, onLogout }: SidebarProps) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, onLogout, onOpenModal }: SidebarProps) {
   const groups = groupByRecency(conversations);
   const sidebar = useSidebar();
 
@@ -393,26 +415,24 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
         </div>
       </div>
 
+      {/* Sync card — above footer, visible while syncing or after completion */}
+      <SyncCard onViewDetails={() => onOpenModal?.("sync")} />
+
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-        {userEmail && (
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate flex-1 min-w-0 mr-2">
-              {userEmail}
-            </p>
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                title="Sign out"
-                className="shrink-0 p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <SyncStatus />
+      <div className="px-3 py-3 border-t border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2">
+          {userEmail && (
+            <button
+              onClick={() => onOpenModal?.("settings")}
+              className="flex items-center gap-1.5 min-w-0 flex-1 text-left rounded-md px-1 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors group"
+              title="Account settings"
+            >
+              <span className="text-xs text-zinc-400 dark:text-zinc-500 truncate flex-1 min-w-0">
+                {userEmail}
+              </span>
+              <Settings className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )}
           <ThemeToggle />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Sidebar } from "@/components/layout/sidebar";
+import { AccountModal } from "@/components/layout/account-modal";
 import type { Conversation } from "@/types";
 
 export function SidebarWrapper() {
@@ -11,6 +12,8 @@ export function SidebarWrapper() {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"sync" | "settings">("sync");
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,15 +86,27 @@ export function SidebarWrapper() {
   }
 
   return (
-    <Sidebar
-      conversations={conversations}
-      activeId={activeId}
-      onSelect={handleSelect}
-      onNew={handleNew}
-      onDelete={handleDelete}
-      onRename={handleRename}
-      userEmail={userEmail}
-      onLogout={handleLogout}
-    />
+    <>
+      <Sidebar
+        conversations={conversations}
+        activeId={activeId}
+        onSelect={handleSelect}
+        onNew={handleNew}
+        onDelete={handleDelete}
+        onRename={handleRename}
+        userEmail={userEmail}
+        onLogout={handleLogout}
+        onOpenModal={(tab) => { setModalTab(tab); setModalOpen(true); }}
+      />
+      {userEmail && (
+        <AccountModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          userEmail={userEmail}
+          onLogout={handleLogout}
+          defaultTab={modalTab}
+        />
+      )}
+    </>
   );
 }

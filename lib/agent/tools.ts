@@ -70,6 +70,29 @@ export function createAgentTools(userId: string) {
                 updated_at: "timestamptz",
               },
             },
+            segment_efforts: {
+              description:
+                "One row per segment effort per activity. Use segment_id to group all efforts on the same " +
+                "Strava segment across activities. Useful for: progression over time, PRs, most-ridden segments.",
+              columns: {
+                id: "bigint — Strava segment effort ID",
+                user_id: "uuid — always filter by this",
+                activity_id: "bigint — FK to activities.id",
+                segment_id: "bigint — Strava segment ID; group by this to see all efforts on one segment",
+                name: "text — segment name (consistent per segment_id, denormalised for display)",
+                elapsed_time: "int — seconds on segment (wall clock)",
+                moving_time: "int — seconds moving on segment",
+                start_date: "timestamptz — when this effort started",
+                distance: "float — meters",
+                average_watts: "float nullable",
+                average_heartrate: "float nullable",
+                max_heartrate: "float nullable",
+                average_cadence: "float nullable",
+                pr_rank: "int nullable — 1/2/3 if top-3 personal best at time of activity",
+                kom_rank: "int nullable — rank if top-10 KOM at time of activity",
+                achievements: "jsonb nullable — [{type_id, type, rank}]; use achievements @> '[{\"type\":\"pr\"}]' to filter PRs",
+              },
+            },
           },
         };
       },
