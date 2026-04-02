@@ -169,6 +169,21 @@ function SyncTab() {
 
   return (
     <div className="space-y-5 py-2">
+      {data && (() => {
+        const callout = syncStatusCallout(data);
+        if (!callout) return null;
+        const colors = {
+          info: "bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400",
+          success: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400",
+          error: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400",
+        };
+        return (
+          <p className={cn("text-xs px-3 py-2.5 rounded-lg", colors[callout.variant])}>
+            {callout.text}
+          </p>
+        );
+      })()}
+
       <SyncPhaseDetail
         title="Phase 1 — Activity summaries"
         includes="Name, date, distance, time, elevation, heart rate, pace, power"
@@ -184,21 +199,6 @@ function SyncTab() {
         waiting={!!data?.phase1}
         rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
-
-      {data && (() => {
-        const callout = syncStatusCallout(data);
-        if (!callout) return null;
-        const colors = {
-          info: "bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400",
-          success: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400",
-          error: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400",
-        };
-        return (
-          <p className={cn("text-xs px-3 py-2.5 rounded-lg", colors[callout.variant])}>
-            {callout.text}
-          </p>
-        );
-      })()}
 
       {lastSynced && (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
