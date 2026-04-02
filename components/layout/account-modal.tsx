@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ---- Types ----
 
@@ -37,18 +38,6 @@ function etaLabel(job: SyncJob): string | null {
   return mins > 60 ? `~${Math.ceil(mins / 60)}h left` : `~${mins}m left`;
 }
 
-function RateLimitInfo({ tip }: { tip: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Info className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0 cursor-default" />
-      </TooltipTrigger>
-      <TooltipContent side="right" className="max-w-[220px] text-xs">
-        {tip}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 function SyncPhaseDetail({
   title,
@@ -203,6 +192,7 @@ function SettingsTab({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -269,6 +259,29 @@ function SettingsTab({
 
   return (
     <div className="space-y-6 py-2">
+      {/* Appearance */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Appearance</h3>
+        <div className="flex gap-2">
+          {(["light", "dark", "system"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
+              className={cn(
+                "flex-1 py-1.5 rounded-md text-xs border transition-colors capitalize",
+                theme === t
+                  ? "border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800"
+                  : "border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600"
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Profile */}
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Profile</h3>
