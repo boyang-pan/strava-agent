@@ -38,6 +38,33 @@ function etaLabel(job: SyncJob): string | null {
   return mins > 60 ? `~${Math.ceil(mins / 60)}h left` : `~${mins}m left`;
 }
 
+function relativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+function syncStatusCallout(data: SyncData): { text: string; variant: "info" | "success" | "error" } | null {
+  const anyFailed = data.phase1?.status === "failed" || data.phase2?.status === "failed";
+  const allDone = data.phase1?.status === "completed" && data.phase2?.status === "completed";
+  const p1Running = data.phase1?.status === "running";
+  const p1Done = data.phase1?.status === "completed";
+  const p2Running = data.phase2?.status === "running";
+
+  if (anyFailed) return { text: "Something went wrong during sync. Try reconnecting your Strava account.", variant: "error" };
+  if (allDone) return { text: "All synced. New activities appear automatically within a few minutes of recording.", variant: "success" };
+  if (p1Running) return { text: "Importing your activity history — basic queries will be available once this completes.", variant: "info" };
+  if (p1Done && p2Running) return { text: "Basic data is ready — try asking about your runs or weekly mileage. Calories, power, and segments are on their way.", variant: "info" };
+  if (p1Done && !data.phase2) return { text: "Activity summaries imported. Enrichment starting shortly…", variant: "info" };
+  return null;
+}
+
 
 function SyncPhaseDetail({
   title,
@@ -158,16 +185,24 @@ function SyncTab() {
         rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
 
+      {data && (() => {
+        const callout = syncStatusCallout(data);
+        if (!callout) return null;
+        const colors = {
+          info: "bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400",
+          success: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400",
+          error: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400",
+        };
+        return (
+          <p className={cn("text-xs px-3 py-2.5 rounded-lg", colors[callout.variant])}>
+            {callout.text}
+          </p>
+        );
+      })()}
+
       {lastSynced && (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 pt-1">
-          Last updated:{" "}
-          {new Date(lastSynced).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          Last updated: {relativeTime(lastSynced)}
         </p>
       )}
 

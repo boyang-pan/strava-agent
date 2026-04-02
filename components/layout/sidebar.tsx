@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Activity, Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings, ChevronRight } from "lucide-react";
+import { Activity, Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings } from "lucide-react";
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -243,26 +243,7 @@ function SyncCard({ onViewDetails }: { onViewDetails: () => void }) {
   const anyFailed = phase1?.status === "failed" || phase2?.status === "failed";
   const allDone = phase1?.status === "completed" && phase2?.status === "completed";
 
-  if (allDone) {
-    const lastSync = phase2?.updated_at ?? phase1?.updated_at;
-    const dateLabel = lastSync
-      ? new Date(lastSync).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      : "";
-    return (
-      <div className="px-3 pb-2">
-        <button
-          onClick={onViewDetails}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors group"
-        >
-          <span className="text-xs text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-            <span className="text-green-500">✓</span>
-            All data synced{dateLabel && ` · ${dateLabel}`}
-          </span>
-          <ChevronRight className="w-3 h-3 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
-      </div>
-    );
-  }
+  if (allDone) return null;
 
   return (
     <div className="px-3 pb-2">
