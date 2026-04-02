@@ -67,10 +67,7 @@ function SyncPhaseDetail({
     return (
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</p>
-            {rateLimitTip && <RateLimitInfo tip={rateLimitTip} />}
-          </div>
+          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</p>
           <p className="text-xs text-zinc-400 dark:text-zinc-500">Waiting...</p>
         </div>
         <p className="text-xs text-zinc-400 dark:text-zinc-500">{includes}</p>
@@ -87,10 +84,7 @@ function SyncPhaseDetail({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</p>
-          {rateLimitTip && <RateLimitInfo tip={rateLimitTip} />}
-        </div>
+        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</p>
         {status === "completed" && (
           <span className="text-xs text-green-500 flex items-center gap-1">
             ✓ {synced.toLocaleString()} synced
@@ -100,10 +94,24 @@ function SyncPhaseDetail({
           <span className="text-xs text-red-500">Failed</span>
         )}
         {status === "running" && (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-            {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
-            {eta && <span className="ml-1 text-zinc-400 dark:text-zinc-600">{eta}</span>}
-          </span>
+          rateLimitTip ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500 cursor-default underline decoration-dotted underline-offset-2">
+                  {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
+                  {eta && <span className="ml-1 text-zinc-400 dark:text-zinc-600">{eta}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[220px] text-xs">
+                {rateLimitTip}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">
+              {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
+              {eta && <span className="ml-1 text-zinc-400 dark:text-zinc-600">{eta}</span>}
+            </span>
+          )
         )}
       </div>
       <p className="text-xs text-zinc-400 dark:text-zinc-500">{includes}</p>
@@ -155,20 +163,10 @@ function SyncTab() {
 
       <SyncPhaseDetail
         title="Phase 2 — Enrichment"
-        includes="Calories, max power, description"
+        includes="Calories, max power, description, segment times, PR rank, power and HR per segment"
         job={data?.phase2 ?? null}
         waiting={!!data?.phase1}
-        rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours."
-      />
-
-      <Separator />
-
-      <SyncPhaseDetail
-        title="Phase 3 — Segment efforts"
-        includes="Segment times, PR rank, power and HR per segment"
-        job={null}
-        waiting={!!data?.phase1}
-        rateLimitTip="Segment efforts are extracted from the same requests as Phase 2 — no extra API calls needed. They sync automatically alongside enrichment."
+        rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
 
       {lastSynced && (
