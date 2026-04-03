@@ -27,6 +27,7 @@ interface SyncJob {
 interface SyncData {
   phase1: SyncJob | null;
   phase2: SyncJob | null;
+  lastActivitySyncedAt: string | null;
 }
 
 // ---- Sync tab ----
@@ -145,12 +146,13 @@ function SyncPhaseDetail({
 
 function SyncTab() {
   const [data, setData] = useState<SyncData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchStatus = () => {
     fetch("/api/sync-status")
       .then((r) => r.json())
-      .then((d: SyncData) => setData(d))
-      .catch(() => {});
+      .then((d: SyncData) => { setData(d); setLoading(false); })
+      .catch(() => { setLoading(false); });
   };
 
   useEffect(() => {
@@ -165,7 +167,24 @@ function SyncTab() {
     return () => clearInterval(id);
   }, [data]);
 
-  const lastSynced = data?.phase2?.updated_at ?? data?.phase1?.updated_at;
+  const lastSynced = data?.lastActivitySyncedAt ?? data?.phase2?.updated_at ?? data?.phase1?.updated_at;
+
+  if (loading) {
+    return (
+      <div className="space-y-5 py-2 animate-pulse">
+        <div className="h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+        <div className="space-y-2">
+          <div className="h-4 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-3 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+        </div>
+        <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+        <div className="space-y-2">
+          <div className="h-4 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-3 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 py-2">
@@ -201,9 +220,12 @@ function SyncTab() {
       />
 
       {lastSynced && (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          Last updated: {relativeTime(lastSynced)}
-        </p>
+        <>
+          <Separator />
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+            Last updated: {relativeTime(lastSynced)}
+          </p>
+        </>
       )}
 
       {!data?.phase1 && (
