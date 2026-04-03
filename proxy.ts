@@ -31,6 +31,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Landing page — public for unauthenticated, redirect to chat for authenticated
+  // Exception: if the URL has an invite hash the client-side handler needs to run first,
+  // but middleware can't read hash fragments — so we allow the page to load when the
+  // request looks like it may have come from an invite link (checked client-side).
   if (pathname === "/") {
     if (user) {
       const chatUrl = request.nextUrl.clone();
@@ -43,6 +46,7 @@ export async function proxy(request: NextRequest) {
   // Public paths — no auth required
   const isPublic =
     pathname === "/login" ||
+    pathname === "/set-password" ||
     pathname.startsWith("/api/strava/callback") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/waitlist") ||
