@@ -30,11 +30,22 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Landing page — public for unauthenticated, redirect to chat for authenticated
+  if (pathname === "/") {
+    if (user) {
+      const chatUrl = request.nextUrl.clone();
+      chatUrl.pathname = "/chat";
+      return NextResponse.redirect(chatUrl);
+    }
+    return supabaseResponse;
+  }
+
   // Public paths — no auth required
   const isPublic =
     pathname === "/login" ||
     pathname.startsWith("/api/strava/callback") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/waitlist") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon");
 

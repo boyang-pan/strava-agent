@@ -556,7 +556,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         </div>
       </div>
       <span className="absolute bottom-3 right-4 text-[11px] text-zinc-300 dark:text-zinc-700 select-none pointer-events-none">
-        BP° Studio
+        BP° works
       </span>
     </div>
   );

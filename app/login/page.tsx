@@ -10,10 +10,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkEmail, setCheckEmail] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,16 +24,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setCheckEmail(true);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push("/chat");
-        router.refresh();
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      router.push("/chat");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -43,32 +35,12 @@ export default function LoginPage() {
     }
   }
 
-  if (checkEmail) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-full max-w-sm space-y-3 px-4 text-center">
-          <div className="text-4xl">📬</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
-          <p className="text-sm text-muted-foreground">
-            We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account and continue.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-sm space-y-6 px-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {mode === "login" ? "Sign in" : "Create account"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === "login"
-              ? "Sign in to your Strava Agent account"
-              : "Connect your Strava data to get started"}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+          <p className="text-sm text-muted-foreground">Sign in to your Strava Agent account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -86,27 +58,21 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            autoComplete="current-password"
           />
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading
-              ? mode === "login" ? "Signing in…" : "Creating account…"
-              : mode === "login" ? "Sign in" : "Create account"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button
-            type="button"
-            onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(null); }}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            {mode === "login" ? "Sign up" : "Sign in"}
-          </button>
+          Don&apos;t have an account?{" "}
+          <a href="/" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Join the waitlist →
+          </a>
         </p>
       </div>
     </div>
