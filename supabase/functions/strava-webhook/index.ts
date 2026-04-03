@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
         .eq("athlete_id", athleteId)
         .single();
 
-      if (connError || !conn) {
+      if (connError || !conn || !conn.user_id) {
         console.error(`No user found for athlete_id ${athleteId}`);
         return Response.json({ ok: true }); // Not our user — ignore
       }

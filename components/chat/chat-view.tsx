@@ -457,7 +457,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 shrink-0 flex items-center gap-2">
         {sidebar?.isCollapsed && (
@@ -555,6 +555,9 @@ export function ChatView({ conversationId }: ChatViewProps) {
           </p>
         </div>
       </div>
+      <span className="absolute bottom-3 right-4 text-[11px] text-zinc-300 dark:text-zinc-700 select-none pointer-events-none">
+        BP° Studio
+      </span>
     </div>
   );
 }
