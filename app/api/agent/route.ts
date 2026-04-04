@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const planSpan = span.startSpan({ name: "plan" });
     try {
       const { object } = await generateObject({
-        model: anthropic("claude-opus-4-6"),
+        model: anthropic("claude-sonnet-4-6"),
         schema: planSchema,
         system: systemPrompt,
         messages: [
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // Phase 2 config — shared across retry attempts
     const answerSpan = span.startSpan({ name: "answer" });
     const phase2Config = {
-      model: anthropic("claude-opus-4-6"),
+      model: anthropic("claude-sonnet-4-6"),
       system: systemPrompt,
       messages: [
         ...(history ?? []),
@@ -160,9 +160,10 @@ export async function POST(request: Request) {
           );
         }
 
-        // Retry loop — Anthropic returns overloaded_error transiently
+        // Retry loop — Anthropic returns overloaded_error (529) and rate_limit_error (429) transiently
         const maxAttempts = 3;
         let lastErr: unknown;
+        let incompleteResponse = false;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           if (attempt > 0) {
             console.log(`[agent] retrying Phase 2 (attempt ${attempt + 1})...`);
@@ -170,19 +171,30 @@ export async function POST(request: Request) {
           }
           try {
             const result = streamText(phase2Config);
+            let hasToolResults = false;
+            let textSinceLastToolResult = false;
             for await (const chunk of result.fullStream) {
               let line: string | null = null;
 
               if (chunk.type === "text-delta") {
+                textSinceLastToolResult = true;
                 line = `0:${JSON.stringify(chunk.text)}\n`;
               } else if (chunk.type === "tool-call") {
                 let parsedInput: unknown = chunk.input;
                 try { parsedInput = JSON.parse(chunk.input as string); } catch {}
                 line = `9:${JSON.stringify({ toolName: chunk.toolName, args: parsedInput })}\n`;
               } else if (chunk.type === "tool-result") {
+                hasToolResults = true;
+                textSinceLastToolResult = false;
                 line = `a:${JSON.stringify({ result: chunk.output })}\n`;
               } else if (chunk.type === "finish") {
-                line = `d:{}\n`;
+                // If the stream ended after tool calls but without a final answer,
+                // the model was likely cut off (e.g. by a silent rate limit failure).
+                if (hasToolResults && !textSinceLastToolResult) {
+                  incompleteResponse = true;
+                } else {
+                  line = `d:{}\n`;
+                }
               }
 
               if (line) controller.enqueue(encoder.encode(line));
@@ -192,19 +204,24 @@ export async function POST(request: Request) {
           } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);
-            const isOverloaded = msg.toLowerCase().includes("overload") || msg.includes("529");
+            const isTransient =
+              msg.toLowerCase().includes("overload") ||
+              msg.includes("529") ||
+              msg.toLowerCase().includes("rate_limit") ||
+              msg.includes("429");
             console.error(`[agent] Phase 2 attempt ${attempt + 1} failed:`, msg);
-            if (!isOverloaded) break; // don't retry non-transient errors
+            if (!isTransient) break; // don't retry non-transient errors
           }
         }
 
-        if (lastErr) {
-          const errMsg =
-            (lastErr instanceof Error && lastErr.message) ||
-            (typeof lastErr === "object" && lastErr !== null && "responseBody" in lastErr
-              ? String((lastErr as Record<string, unknown>).responseBody).slice(0, 200)
-              : null) ||
-            "The AI service is currently overloaded. Please try again in a moment.";
+        if (lastErr || incompleteResponse) {
+          const errMsg = incompleteResponse
+            ? "The response was cut off before a final answer was produced (likely a rate limit). Please try again."
+            : (lastErr instanceof Error && lastErr.message) ||
+              (typeof lastErr === "object" && lastErr !== null && "responseBody" in lastErr
+                ? String((lastErr as Record<string, unknown>).responseBody).slice(0, 200)
+                : null) ||
+              "The AI service is currently overloaded. Please try again in a moment.";
           try {
             controller.enqueue(encoder.encode(`e:${JSON.stringify({ message: errMsg })}\n`));
           } catch {}
