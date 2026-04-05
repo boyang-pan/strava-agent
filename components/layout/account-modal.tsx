@@ -57,13 +57,16 @@ function syncStatusCallout(data: SyncData): { text: string; variant: "info" | "s
   const allDone = data.phase1?.status === "completed" && data.phase2?.status === "completed";
   const p1Running = data.phase1?.status === "running";
   const p1Done = data.phase1?.status === "completed";
-  const p2Running = data.phase2?.status === "running";
+  const p2 = data.phase2;
+  const p2ActivelyRunning = p2?.status === "running" && !isStale(p2);
+  const p2Stale = p2 ? isStale(p2) : false;
 
   if (anyFailed) return { text: "Something went wrong during sync. Try reconnecting your Strava account.", variant: "error" };
   if (allDone) return { text: "All synced. New activities appear automatically within a few minutes of recording.", variant: "success" };
   if (p1Running) return { text: "Importing your activity history — basic queries will be available once this completes.", variant: "info" };
-  if (p1Done && p2Running) return { text: "Basic data is ready — try asking about your runs or weekly mileage. Calories, power, and segments are on their way.", variant: "info" };
-  if (p1Done && !data.phase2) return { text: "Activity summaries imported. Enrichment starting shortly…", variant: "info" };
+  if (p1Done && p2Stale) return { text: "Enrichment stopped unexpectedly — click \"Resume sync\" below to continue.", variant: "error" };
+  if (p1Done && p2ActivelyRunning) return { text: "Basic data is ready — try asking about your runs or weekly mileage. Calories, power, and segments are on their way.", variant: "info" };
+  if (p1Done && !p2) return { text: "Activity summaries imported. Enrichment starting shortly…", variant: "info" };
   return null;
 }
 
@@ -96,8 +99,9 @@ function SyncPhaseDetail({
   if (!job) return null;
 
   const { status, synced, total } = job;
+  const stale = isStale(job);
   const pct = total && total > 0 ? Math.round((synced / total) * 100) : null;
-  const eta = etaLabel(job);
+  const eta = !stale ? etaLabel(job) : null;
 
   return (
     <div className="space-y-2">
@@ -111,7 +115,13 @@ function SyncPhaseDetail({
         {status === "failed" && (
           <span className="text-xs text-red-500">Failed</span>
         )}
-        {status === "running" && (
+        {status === "running" && stale && (
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+            {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
+            <span className="ml-1.5 text-amber-500 dark:text-amber-400">Stopped</span>
+          </span>
+        )}
+        {status === "running" && !stale && (
           rateLimitTip ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -136,7 +146,10 @@ function SyncPhaseDetail({
       {status === "running" && (
         <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-orange-500 rounded-full transition-all duration-500"
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              stale ? "bg-zinc-300 dark:bg-zinc-600" : "bg-orange-500"
+            )}
             style={{ width: pct !== null ? `${pct}%` : "5%" }}
           />
         </div>
@@ -249,17 +262,23 @@ function SyncTab() {
         rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
 
-      {data?.phase1?.status === "completed" && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleSync}
-          disabled={syncing || (!!data.phase2 && data.phase2.status === "running" && !isStale(data.phase2))}
-          className="w-full"
-        >
-          {syncing ? "Syncing…" : "Sync now"}
-        </Button>
-      )}
+      {data?.phase1?.status === "completed" && (() => {
+        const p2 = data.phase2;
+        const activelyRunning = p2?.status === "running" && !isStale(p2);
+        const needsResume = p2?.status === "failed" || (p2 ? isStale(p2) : false);
+        const label = syncing ? "Syncing…" : needsResume ? "Resume sync" : "Sync new activities";
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSync}
+            disabled={syncing || activelyRunning}
+            className="w-full"
+          >
+            {label}
+          </Button>
+        );
+      })()}
 
       {lastSynced && (
         <>
