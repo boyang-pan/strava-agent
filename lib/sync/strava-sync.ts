@@ -35,9 +35,15 @@ interface StravaActivitySummary {
 async function fetchActivitiesPage(
   token: string,
   page: number,
-  perPage = 200
+  perPage = 200,
+  after?: number
 ): Promise<StravaActivitySummary[]> {
-  const url = `https://www.strava.com/api/v3/athlete/activities?page=${page}&per_page=${perPage}`;
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+    ...(after !== undefined ? { after: String(after) } : {}),
+  });
+  const url = `https://www.strava.com/api/v3/athlete/activities?${params}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -153,6 +159,60 @@ export async function refreshStravaToken(userId: string): Promise<string> {
   }).eq("user_id", userId);
 
   return tokens.access_token;
+}
+
+// ---- Incremental sync (manual trigger) ----
+
+/**
+ * Fetches only activities newer than the latest one in the DB, upserts them,
+ * then fires Phase 2 to enrich both the new rows and any previously
+ * interrupted summary-only rows.
+ *
+ * Returns the number of newly imported activities.
+ */
+export async function syncNewActivities(userId: string): Promise<{ newActivities: number }> {
+  const accessToken = await refreshStravaToken(userId);
+
+  // Find the most recent activity start_date to use as the `after` cursor
+  const { data: latest } = await supabaseAdmin
+    .from("activities")
+    .select("start_date")
+    .eq("user_id", userId)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .single();
+
+  const after = latest?.start_date
+    ? Math.floor(new Date(latest.start_date).getTime() / 1000)
+    : undefined;
+
+  let page = 1;
+  let totalNew = 0;
+
+  while (true) {
+    const activities = await fetchActivitiesPage(accessToken, page, 200, after);
+    if (activities.length === 0) break;
+
+    const rows = activities.map((a) => mapActivity(userId, a));
+    const { error } = await supabaseAdmin.from("activities").upsert(rows);
+    if (error) throw new Error(`Upsert error on page ${page}: ${error.message}`);
+
+    totalNew += activities.length;
+    if (activities.length < 200) break;
+    page++;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  if (totalNew > 0) {
+    await computePersonalRecords(userId);
+  }
+
+  // Phase 2 picks up new summary rows AND any previously interrupted ones
+  syncStravaActivitiesPhase2(userId).catch((err) =>
+    console.error(`[sync-manual] phase2 kick failed for user ${userId}:`, err)
+  );
+
+  return { newActivities: totalNew };
 }
 
 // ---- Main sync function ----

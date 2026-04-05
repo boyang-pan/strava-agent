@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ---- Types ----
 
@@ -153,7 +154,7 @@ function isStale(job: SyncJob): boolean {
 function SyncTab() {
   const [data, setData] = useState<SyncData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [resuming, setResuming] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchStatus = () => {
     fetch("/api/sync-status")
@@ -177,11 +178,23 @@ function SyncTab() {
     return () => clearInterval(id);
   }, [data]);
 
-  async function handleResume() {
-    setResuming(true);
-    await fetch("/api/strava/sync/phase2", { method: "POST" });
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/strava/sync/manual", { method: "POST" });
+      const data = await res.json() as { newActivities?: number; error?: string };
+      if (!res.ok || data.error) {
+        toast.error("Sync failed. Please try again.");
+      } else if (data.newActivities === 0) {
+        toast.success("Already up to date");
+      } else {
+        toast.success(`Synced — ${data.newActivities} new activit${data.newActivities === 1 ? "y" : "ies"} imported`);
+      }
+    } catch {
+      toast.error("Sync failed. Please try again.");
+    }
     await fetchStatus();
-    setResuming(false);
+    setSyncing(false);
   }
 
   const lastSynced = data?.lastActivitySyncedAt ?? data?.phase2?.updated_at ?? data?.phase1?.updated_at;
@@ -236,18 +249,17 @@ function SyncTab() {
         rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
 
-      {data?.phase1?.status === "completed" && data.phase2 &&
-        (data.phase2.status === "failed" || isStale(data.phase2)) && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleResume}
-            disabled={resuming}
-            className="w-full"
-          >
-            {resuming ? "Resuming…" : "Resume Phase 2 sync"}
-          </Button>
-        )}
+      {data?.phase1?.status === "completed" && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleSync}
+          disabled={syncing || (!!data.phase2 && data.phase2.status === "running" && !isStale(data.phase2))}
+          className="w-full"
+        >
+          {syncing ? "Syncing…" : "Sync now"}
+        </Button>
+      )}
 
       {lastSynced && (
         <>
