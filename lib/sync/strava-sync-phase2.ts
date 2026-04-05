@@ -75,24 +75,33 @@ export async function syncStravaActivitiesPhase2(userId: string): Promise<void> 
       .eq("id", job.id);
 
   try {
-    // Fetch all summary activities for this user
-    const { data: summaryActivities, error } = await supabaseAdmin
-      .from("activities")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("sync_status", "summary")
-      .order("start_date", { ascending: false });
+    // Fetch all summary (not yet enriched) activities for this user
+    const [{ data: summaryActivities, error }, { count: alreadyDone }] = await Promise.all([
+      supabaseAdmin
+        .from("activities")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("sync_status", "summary")
+        .order("start_date", { ascending: false }),
+      supabaseAdmin
+        .from("activities")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("sync_status", "detailed"),
+    ]);
 
     if (error) throw new Error(`Failed to fetch summary activities: ${error.message}`);
     if (!summaryActivities || summaryActivities.length === 0) {
-      await updateJob({ status: "completed", total: 0, synced: 0 });
+      await updateJob({ status: "completed", total: alreadyDone ?? 0, synced: alreadyDone ?? 0 });
       return;
     }
 
-    const total = summaryActivities.length;
-    await updateJob({ total });
+    // Use cumulative totals so the progress bar continues from where it left off
+    const alreadySynced = alreadyDone ?? 0;
+    const total = alreadySynced + summaryActivities.length;
+    await updateJob({ total, synced: alreadySynced });
 
-    let synced = 0;
+    let synced = alreadySynced;
     let dailyUsed = 0;
     // Refresh token once at the start; will re-refresh if it expires mid-run
     let accessToken = await refreshStravaToken(userId);
