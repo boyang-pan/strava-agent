@@ -122,13 +122,14 @@ export function createAgentTools(userId: string) {
           .describe("The SQL query to execute. Must be a SELECT statement."),
       }),
       execute: async ({ sql }: { sql: string }) => {
-        if (!isSafeQuery(sql)) {
+        const safeQuery = stripAndValidateQuery(sql);
+        if (!safeQuery) {
           return { error: "Only SELECT statements are permitted." };
         }
         const start = Date.now();
         try {
           const { data, error } = await supabaseAdmin.rpc("run_readonly_query", {
-            query: sql,
+            query: safeQuery,
             p_user_id: userId,
           });
           if (error) return { error: error.message };
@@ -270,14 +271,18 @@ export function createAgentTools(userId: string) {
   };
 }
 
-function isSafeQuery(sql: string): boolean {
+/** Returns the comment-stripped SQL if safe, or null if not permitted. */
+function stripAndValidateQuery(sql: string): string | null {
   const stripped = sql.replace(/^(\s*--[^\n]*\n)+/g, "").trim();
   const normalized = stripped.toUpperCase();
   if (!normalized.startsWith("SELECT") && !normalized.startsWith("WITH")) {
-    return false;
+    return null;
   }
   const forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "GRANT", "REVOKE"];
-  return !forbidden.some((kw) => new RegExp(`\\b${kw}\\b`).test(normalized));
+  if (forbidden.some((kw) => new RegExp(`\\b${kw}\\b`).test(normalized))) {
+    return null;
+  }
+  return stripped;
 }
 
 function getWeekStart(date: Date): string {
