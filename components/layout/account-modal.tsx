@@ -144,9 +144,16 @@ function SyncPhaseDetail({
   );
 }
 
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
+function isStale(job: SyncJob): boolean {
+  return job.status === "running" && Date.now() - new Date(job.updated_at).getTime() > STALE_THRESHOLD_MS;
+}
+
 function SyncTab() {
   const [data, setData] = useState<SyncData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resuming, setResuming] = useState(false);
 
   const fetchStatus = () => {
     fetch("/api/sync-status")
@@ -161,11 +168,21 @@ function SyncTab() {
 
   useEffect(() => {
     if (!data) return;
-    const anyRunning = data.phase1?.status === "running" || data.phase2?.status === "running";
-    if (!anyRunning) return;
+    const p2 = data.phase2;
+    const activelyRunning =
+      (data.phase1?.status === "running") ||
+      (p2?.status === "running" && !isStale(p2));
+    if (!activelyRunning) return;
     const id = setInterval(fetchStatus, 5000);
     return () => clearInterval(id);
   }, [data]);
+
+  async function handleResume() {
+    setResuming(true);
+    await fetch("/api/strava/sync/phase2", { method: "POST" });
+    await fetchStatus();
+    setResuming(false);
+  }
 
   const lastSynced = data?.lastActivitySyncedAt ?? data?.phase2?.updated_at ?? data?.phase1?.updated_at;
 
@@ -218,6 +235,19 @@ function SyncTab() {
         waiting={!!data?.phase1}
         rateLimitTip="Strava limits API requests to 100 per 15 minutes and 1,000 per day. Phase 2 fetches one request per activity, so 1,000 activities takes ~2.5 hours. Segment efforts are extracted from the same requests at no extra cost."
       />
+
+      {data?.phase1?.status === "completed" && data.phase2 &&
+        (data.phase2.status === "failed" || isStale(data.phase2)) && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleResume}
+            disabled={resuming}
+            className="w-full"
+          >
+            {resuming ? "Resuming…" : "Resume Phase 2 sync"}
+          </Button>
+        )}
 
       {lastSynced && (
         <>
