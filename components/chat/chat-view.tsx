@@ -169,6 +169,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const shouldAutoScrollRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastQuestionRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -254,9 +256,27 @@ export function ChatView({ conversationId }: ChatViewProps) {
     return () => window.removeEventListener("conversation:renamed", onRenamed);
   }, [conversationId]);
 
-  // Auto-scroll to bottom when messages change
+  // Track whether the user is near the bottom.
+  // shouldAutoScrollRef is a ref (not state) so the auto-scroll effect always
+  // reads the latest value synchronously — avoiding a race where rapid
+  // setMessages calls during streaming cause the effect to see a stale
+  // isAtBottom=true and scroll back down before setIsAtBottom(false) commits.
   useEffect(() => {
-    if (scrollRef.current) {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onScroll() {
+      if (!el) return;
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+      shouldAutoScrollRef.current = nearBottom;
+      setShowScrollButton(!nearBottom);
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Auto-scroll only when pinned to bottom
+  useEffect(() => {
+    if (shouldAutoScrollRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
@@ -269,6 +289,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
       const agentMsgId = newId();
 
       lastQuestionRef.current = question;
+      shouldAutoScrollRef.current = true;
+      setShowScrollButton(false);
       setMessages((prev) => [
         ...prev,
         { id: userMsgId, role: "user", content: question },
@@ -508,6 +530,22 @@ export function ChatView({ conversationId }: ChatViewProps) {
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">New conversation</p>
         )}
       </div>
+
+      {/* Scroll-to-bottom button */}
+      {showScrollButton && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
+          <button
+            onClick={() => {
+              if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+              shouldAutoScrollRef.current = true;
+              setShowScrollButton(false);
+            }}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
