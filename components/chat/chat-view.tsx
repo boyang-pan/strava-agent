@@ -175,9 +175,18 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const lastQuestionRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  // Tracks a conversation ID we just created ourselves so the reset
+  // effect below doesn't wipe messages when the URL updates to the new ID
+  const selfCreatedIdRef = useRef<string | null>(null);
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
+    // Skip reset when we navigated here by creating the conversation ourselves
+    if (conversationId && conversationId === selfCreatedIdRef.current) {
+      selfCreatedIdRef.current = null;
+      return;
+    }
+
     setMessages([]);
     setConversationTitle(null);
     setHasTitleBeenSet(false);
@@ -319,13 +328,27 @@ export function ChatView({ conversationId }: ChatViewProps) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // Create a conversation if this is the first message
+      let convId = conversationId;
+      if (!convId) {
+        try {
+          const convRes = await fetch("/api/conversations", { method: "POST" });
+          const conv = await convRes.json() as { id: string };
+          convId = conv.id;
+          selfCreatedIdRef.current = convId;
+          router.replace(`/chat/${convId}`);
+        } catch {
+          // Non-fatal — messages just won't persist
+        }
+      }
+
       let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
 
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question, history, conversation_id: conversationId }),
+          body: JSON.stringify({ question, history, conversation_id: convId }),
           signal: controller.signal,
         });
 
@@ -386,8 +409,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
         );
 
         // Fire-and-forget message persistence
-        if (conversationId) {
-          fetch(`/api/conversations/${conversationId}/messages`, {
+        if (convId) {
+          fetch(`/api/conversations/${convId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -400,13 +423,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
         }
 
         // Fire-and-forget title generation
-        if (conversationId && !hasTitleBeenSet) {
+        if (convId && !hasTitleBeenSet) {
           setHasTitleBeenSet(true);
           fetch("/api/title", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              conversation_id: conversationId,
+              conversation_id: convId,
               question,
               answer: currentAgentMsg.final_answer,
             }),
