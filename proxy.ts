@@ -62,8 +62,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Authenticated but on /connect-data-source — let them through
-  if (pathname === "/connect-data-source") return supabaseResponse;
+  // Authenticated but on onboarding pages — let them through
+  if (pathname === "/onboarding" || pathname === "/connect-data-source") return supabaseResponse;
 
   // Check if user has connected Strava (skip for API routes to avoid extra DB call)
   const isApiRoute = pathname.startsWith("/api/");

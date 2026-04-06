@@ -23,8 +23,9 @@ export async function POST(request: Request) {
     const { question, history, conversation_id } = await request.json();
 
     const userId = user.id;
+    const firstName = user.user_metadata?.first_name as string | undefined;
     const agentTools = createAgentTools(userId);
-    const systemPrompt = `${SYSTEM_PROMPT}\n\nCurrent user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`;
+    const systemPrompt = `${SYSTEM_PROMPT}\n\n${firstName ? `The user's first name is ${firstName}. ` : ""}Current user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`;
 
     const span = logger.startSpan({ name: "agent-turn" });
 

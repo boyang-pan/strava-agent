@@ -12,6 +12,7 @@ export function SidebarWrapper() {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"sync" | "settings">("sync");
 
@@ -23,6 +24,9 @@ export function SidebarWrapper() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
+      const meta = data.user?.user_metadata;
+      const name = [meta?.first_name, meta?.last_name].filter(Boolean).join(" ") || null;
+      setUserName(name);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -49,6 +53,15 @@ export function SidebarWrapper() {
     }
     window.addEventListener("conversation:renamed", handleRenamed);
     return () => window.removeEventListener("conversation:renamed", handleRenamed);
+  }, []);
+
+  useEffect(() => {
+    function handleNameUpdated(e: Event) {
+      const { name } = (e as CustomEvent<{ name: string | null }>).detail;
+      setUserName(name);
+    }
+    window.addEventListener("user:name-updated", handleNameUpdated);
+    return () => window.removeEventListener("user:name-updated", handleNameUpdated);
   }, []);
 
   async function handleNew() {
@@ -95,6 +108,7 @@ export function SidebarWrapper() {
         onDelete={handleDelete}
         onRename={handleRename}
         userEmail={userEmail}
+        userName={userName}
         onLogout={handleLogout}
         onOpenModal={(tab) => { setModalTab(tab); setModalOpen(true); }}
       />
