@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Strava Agent",
+  title: "Training Chat",
   description: "Ask natural language questions about your Strava training data",
 };
 

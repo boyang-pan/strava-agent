@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   resend.emails
     .send({
-      from: "Strava Agent <onboarding@resend.dev>",
+      from: "Training Chat <onboarding@resend.dev>",
       to: normalizedEmail,
       subject: "You're on the waitlist",
       html: `<p>Hey,</p><p>You're on the list. I'll reach out when your spot is ready.</p><p>— Boyang</p>`,

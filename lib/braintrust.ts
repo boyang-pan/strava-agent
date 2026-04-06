@@ -1,6 +1,6 @@
 import { initLogger } from "braintrust";
 
 export const logger = initLogger({
-  projectName: "strava-agent",
+  projectName: "training-chat",
   apiKey: process.env.BRAINTRUST_API_KEY,
 });

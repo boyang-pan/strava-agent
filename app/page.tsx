@@ -49,7 +49,7 @@ export default function LandingPage() {
       <header className="flex items-center justify-between px-8 py-5 border-b border-zinc-100 dark:border-zinc-900">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
-          <span className="font-semibold text-sm tracking-tight">Strava Agent</span>
+          <span className="font-semibold text-sm tracking-tight">Training Chat</span>
         </div>
         <Link href="/login">
           <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -151,7 +151,7 @@ export default function LandingPage() {
                 </div>
                 {/* Agent response */}
                 <div className="space-y-1.5 max-w-sm">
-                  <div className="text-[10px] text-zinc-400 font-medium">Strava Agent</div>
+                  <div className="text-[10px] text-zinc-400 font-medium">Training Chat</div>
                   <div className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                     Your long rides in March improved significantly. Average distance was{" "}
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">68.2 km</span> vs 54.1 km in February (+26%), and average power climbed from 187W to{" "}
