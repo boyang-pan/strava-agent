@@ -28,10 +28,10 @@ export async function POST(req: Request) {
 
   resend.emails
     .send({
-      from: "Training Chat <noreply@trainingchat.tech>",
+      from: "Bo from Training Chat <noreply@trainingchat.tech>",
       replyTo: "boyangpanworks@gmail.com",
       to: normalizedEmail,
-      subject: "Training Chat waitlist confirmation",
+      subject: "You're on the waitlist",
       html: `<p>Hi,</p><p>Thanks for signing up — really appreciate the interest in Training Chat.</p><p>You're on the list. I'll reach out personally once your spot is ready.</p><p>If you'd like access sooner, just reply to this email and I'll do my best to get you in early.</p><p>Best,<br>Bo from BP° works</p>`,
     })
     .catch(console.error);
