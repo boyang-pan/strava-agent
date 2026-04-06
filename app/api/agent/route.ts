@@ -7,7 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { getAuthUser } from "@/lib/supabase/server";
 import { logger } from "@/lib/braintrust";
 
-export const maxDuration = 800;
+export const maxDuration = 300; // Vercel Pro max
 
 const planSchema = z.object({
   steps: z.array(z.string()).describe("Ordered list of steps the agent will take"),
