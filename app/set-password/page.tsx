@@ -62,7 +62,7 @@ export default function SetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      router.push("/connect-data-source");
+      router.push("/onboarding");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {

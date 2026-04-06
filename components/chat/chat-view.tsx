@@ -439,7 +439,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
               if (data?.title) {
                 setConversationTitle(data.title);
                 window.dispatchEvent(
-                  new CustomEvent("conversation:renamed", { detail: { id: conversationId, title: data.title } })
+                  new CustomEvent("conversation:renamed", { detail: { id: convId, title: data.title } })
                 );
               }
             })

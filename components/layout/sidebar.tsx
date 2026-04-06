@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Activity, Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings } from "lucide-react";
+import { Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,6 +24,7 @@ interface SidebarProps {
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
   userEmail?: string | null;
+  userName?: string | null;
   onLogout?: () => void;
   onOpenModal?: (tab: "sync" | "settings") => void;
 }
@@ -275,15 +277,15 @@ function SyncCard({ onViewDetails }: { onViewDetails: () => void }) {
 }
 
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, onLogout, onOpenModal }: SidebarProps) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, userName, onLogout, onOpenModal }: SidebarProps) {
   const groups = groupByRecency(conversations);
   const sidebar = useSidebar();
 
   return (
     <div className="border-r border-zinc-100 dark:border-zinc-800 flex flex-col h-full bg-white dark:bg-zinc-900 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-4">
-        <Activity className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+      <div className="flex items-baseline gap-2 px-3 py-4">
+        <Logo className="w-6 h-6 text-zinc-900 dark:text-zinc-100" />
         <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex-1">Training Chat</span>
         {sidebar && (
           <button
@@ -380,7 +382,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors group"
           >
             <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate flex-1 min-w-0 text-left">
-              {userEmail}
+              {userName ?? userEmail}
             </span>
             <Settings className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>

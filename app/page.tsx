@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Activity, ArrowRight, Watch, Heart } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,8 +48,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white dark:bg-zinc-950 flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-5 border-b border-zinc-100 dark:border-zinc-900">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
+        <div className="flex items-baseline gap-2">
+          <Logo className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
           <span className="font-semibold text-sm tracking-tight">Training Chat</span>
         </div>
         <Link href="/login">

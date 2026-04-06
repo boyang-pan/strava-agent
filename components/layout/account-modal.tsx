@@ -316,7 +316,8 @@ function SettingsTab({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [nameLoading, setNameLoading] = useState(false);
   const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -328,10 +329,12 @@ function SettingsTab({
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Load current display name from user metadata
+  // Load current name from user metadata
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setDisplayName(data.user?.user_metadata?.full_name ?? "");
+      const meta = data.user?.user_metadata;
+      setFirstName(meta?.first_name ?? "");
+      setLastName(meta?.last_name ?? "");
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -340,7 +343,13 @@ function SettingsTab({
     e.preventDefault();
     setNameLoading(true);
     setNameMsg(null);
-    const { error } = await supabase.auth.updateUser({ data: { full_name: displayName.trim() } });
+    const first = firstName.trim();
+    const last = lastName.trim();
+    const { error } = await supabase.auth.updateUser({ data: { first_name: first, last_name: last } });
+    if (!error) {
+      const fullName = [first, last].filter(Boolean).join(" ") || null;
+      window.dispatchEvent(new CustomEvent("user:name-updated", { detail: { name: fullName } }));
+    }
     setNameMsg(error ? { ok: false, text: error.message } : { ok: true, text: "Name updated." });
     setNameLoading(false);
   }
@@ -404,13 +413,23 @@ function SettingsTab({
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Profile</h3>
         <form onSubmit={handleSaveName} className="space-y-2">
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-500 dark:text-zinc-400">Display name</label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your name"
-            />
+          <div className="flex gap-2">
+            <div className="space-y-1 flex-1">
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">First name</label>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First"
+              />
+            </div>
+            <div className="space-y-1 flex-1">
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">Last name</label>
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last"
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="text-xs text-zinc-500 dark:text-zinc-400">Email</label>
