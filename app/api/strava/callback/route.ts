@@ -2,6 +2,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { syncStravaActivities } from "@/lib/sync/strava-sync";
 import { NextResponse, type NextRequest } from "next/server";
+import { waitUntil } from "@vercel/functions";
 
 export async function GET(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
@@ -62,9 +63,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/connect-strava?error=db_error`);
   }
 
-  // Kick off sync directly as a background promise — avoids unreliable self-fetch
-  syncStravaActivities(user.id, tokens.access_token).catch((err) =>
-    console.error("[strava/callback] sync failed:", err)
+  // Kick off sync — waitUntil keeps the serverless function alive after redirect
+  waitUntil(
+    syncStravaActivities(user.id, tokens.access_token).catch((err) =>
+      console.error("[strava/callback] sync failed:", err)
+    )
   );
 
   return NextResponse.redirect(`${appUrl}/chat`);

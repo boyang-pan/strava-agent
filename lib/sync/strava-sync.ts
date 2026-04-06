@@ -205,6 +205,27 @@ export async function syncNewActivities(userId: string): Promise<{ newActivities
 
   if (totalNew > 0) {
     await computePersonalRecords(userId);
+
+    // Keep Phase 1 job count in sync so it matches Phase 2's total
+    const { data: p1Job } = await supabaseAdmin
+      .from("strava_sync_jobs")
+      .select("id, synced, total")
+      .eq("user_id", userId)
+      .eq("phase", 1)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (p1Job) {
+      await supabaseAdmin
+        .from("strava_sync_jobs")
+        .update({
+          synced: (p1Job.synced ?? 0) + totalNew,
+          total: (p1Job.total ?? 0) + totalNew,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", p1Job.id);
+    }
   }
 
   // Phase 2 picks up new summary rows AND any previously interrupted ones
