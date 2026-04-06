@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error");
 
   if (error || !code) {
-    return NextResponse.redirect(`${appUrl}/connect-strava?error=${error ?? "missing_code"}`);
+    return NextResponse.redirect(`${appUrl}/connect-data-source?error=${error ?? "missing_code"}`);
   }
 
   const user = await getAuthUser();
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
     console.error("[strava/callback] token exchange failed:", body);
-    return NextResponse.redirect(`${appUrl}/connect-strava?error=token_exchange_failed`);
+    return NextResponse.redirect(`${appUrl}/connect-data-source?error=token_exchange_failed`);
   }
 
   const tokens = await tokenRes.json() as {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   if (upsertError) {
     console.error("[strava/callback] upsert failed:", upsertError);
-    return NextResponse.redirect(`${appUrl}/connect-strava?error=db_error`);
+    return NextResponse.redirect(`${appUrl}/connect-data-source?error=db_error`);
   }
 
   // Kick off sync — waitUntil keeps the serverless function alive after redirect

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     await supabase.auth.exchangeCodeForSession(code);
-    return NextResponse.redirect(`${appUrl}/connect-strava`);
+    return NextResponse.redirect(`${appUrl}/connect-data-source`);
   }
 
   // No server-readable params — hash tokens from Supabase implicit flow will
