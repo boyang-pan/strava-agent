@@ -284,7 +284,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-4">
         <Activity className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex-1">Strava Agent</span>
+        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex-1">Training Chat</span>
         {sidebar && (
           <button
             onClick={sidebar.toggle}
