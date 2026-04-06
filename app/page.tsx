@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Activity, ArrowRight } from "lucide-react";
+import { Activity, ArrowRight, Watch, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,10 +61,10 @@ export default function LandingPage() {
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
         <h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 max-w-xl leading-tight">
-          Your Strava training, finally understood.
+          Chat about your training data.
         </h1>
         <p className="mt-5 text-lg text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">
-          Ask anything about your training data in plain English — pace trends, recovery, power output, and more.
+          Connect your training data and ask anything in plain English. Pace trends, recovery, personal bests, and more.
         </p>
 
         {/* Waitlist form */}
@@ -94,7 +94,7 @@ export default function LandingPage() {
               </p>
               <Input
                 type="url"
-                placeholder="Strava profile URL (optional)"
+                placeholder="Strava or Garmin profile URL (optional)"
                 value={stravaUrl}
                 onChange={(e) => setStravaUrl(e.target.value)}
               />
@@ -118,6 +118,28 @@ export default function LandingPage() {
               </button>
             </form>
           )}
+        </div>
+
+        {/* Connectors */}
+        <div className="mt-6 flex items-center gap-2 flex-wrap justify-center">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <Activity className="w-3 h-3" />
+            Strava
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ml-0.5" />
+            <span className="text-emerald-600 dark:text-emerald-500">Live</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-600">
+            <Watch className="w-3 h-3" />
+            Garmin
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 ml-0.5" />
+            Planned
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-600">
+            <Heart className="w-3 h-3" />
+            Apple Health
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 ml-0.5" />
+            Planned
+          </div>
         </div>
       </main>
 
