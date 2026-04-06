@@ -62,8 +62,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Authenticated but on /connect-strava — let them through
-  if (pathname === "/connect-strava") return supabaseResponse;
+  // Authenticated but on /connect-data-source — let them through
+  if (pathname === "/connect-data-source") return supabaseResponse;
 
   // Check if user has connected Strava (skip for API routes to avoid extra DB call)
   const isApiRoute = pathname.startsWith("/api/");
@@ -76,7 +76,7 @@ export async function proxy(request: NextRequest) {
 
     if (!connection) {
       const connectUrl = request.nextUrl.clone();
-      connectUrl.pathname = "/connect-strava";
+      connectUrl.pathname = "/connect-data-source";
       return NextResponse.redirect(connectUrl);
     }
   }

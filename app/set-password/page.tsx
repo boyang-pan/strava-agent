@@ -24,7 +24,7 @@ export default function SetPasswordPage() {
     const params = new URLSearchParams(hash);
 
     if (params.get("error")) {
-      setError("This invite link has expired or already been used. Ask for a new one.");
+      setError("expired");
       return;
     }
 
@@ -62,7 +62,7 @@ export default function SetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      router.push("/connect-strava");
+      router.push("/connect-data-source");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -95,7 +95,19 @@ export default function SetPasswordPage() {
             required
             autoComplete="new-password"
           />
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error === "expired" ? (
+            <p className="text-sm text-destructive">
+              This invite link has expired or already been used.{" "}
+              <a
+                href={`mailto:boyangpanworks@gmail.com?subject=${encodeURIComponent("Training Chat — new invite request")}&body=${encodeURIComponent("Hi Bo,\n\nMy invite link has expired. Could you send a new one?\n\nThanks")}`}
+                className="underline underline-offset-2"
+              >
+                Ask for a new one.
+              </a>
+            </p>
+          ) : error ? (
+            <p className="text-sm text-destructive">{error}</p>
+          ) : null}
           <Button type="submit" className="w-full" disabled={loading || !sessionReady}>
             {loading ? "Saving…" : "Set password"}
           </Button>
