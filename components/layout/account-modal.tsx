@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 interface SyncJob {
   phase: number;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "rate_limited";
   total: number | null;
   synced: number;
   error: string | null;
@@ -58,12 +58,14 @@ function syncStatusCallout(data: SyncData): { text: string; variant: "info" | "s
   const p1Running = data.phase1?.status === "running";
   const p1Done = data.phase1?.status === "completed";
   const p2 = data.phase2;
+  const p2RateLimited = p2?.status === "rate_limited";
   const p2ActivelyRunning = p2?.status === "running" && !isStale(p2);
   const p2Stale = p2 ? isStale(p2) : false;
 
   if (anyFailed) return { text: "Something went wrong during sync. Try reconnecting your Strava account.", variant: "error" };
   if (allDone) return { text: "All synced. New activities appear automatically within a few minutes of recording.", variant: "success" };
   if (p1Running) return { text: "Importing your activity history — basic queries will be available once this completes.", variant: "info" };
+  if (p1Done && p2RateLimited) return { text: "Strava's daily API limit has been reached — enrichment will resume automatically tomorrow.", variant: "error" };
   if (p1Done && p2Stale) return { text: "Enrichment paused — resuming automatically, or click \"Resume sync\" to process a batch now.", variant: "error" };
   if (p1Done && p2ActivelyRunning) return { text: "Basic data is ready — try asking about your runs or weekly mileage. Calories, power, and segments are on their way.", variant: "info" };
   if (p1Done && !p2) return { text: "Activity summaries imported. Enrichment starting shortly…", variant: "info" };
@@ -115,6 +117,12 @@ function SyncPhaseDetail({
         {status === "failed" && (
           <span className="text-xs text-red-500">Failed</span>
         )}
+        {status === "rate_limited" && (
+          <span className="text-xs text-amber-500 dark:text-amber-400">
+            {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
+            <span className="ml-1.5">Rate limited</span>
+          </span>
+        )}
         {status === "running" && stale && (
           <span className="text-xs text-zinc-400 dark:text-zinc-500">
             {total ? `${synced.toLocaleString()} / ${total.toLocaleString()}` : `${synced.toLocaleString()}…`}
@@ -143,11 +151,12 @@ function SyncPhaseDetail({
         )}
       </div>
       <p className="text-xs text-zinc-400 dark:text-zinc-500">{includes}</p>
-      {status === "running" && (
+      {(status === "running" || status === "rate_limited") && (
         <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
+              status === "rate_limited" ? "bg-amber-400 dark:bg-amber-500" :
               stale ? "bg-zinc-300 dark:bg-zinc-600" : "bg-orange-500"
             )}
             style={{ width: pct !== null ? `${pct}%` : "5%" }}
@@ -161,7 +170,7 @@ function SyncPhaseDetail({
 const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 20 min — cron runs every 15 min
 
 function isStale(job: SyncJob): boolean {
-  return job.status === "running" && Date.now() - new Date(job.updated_at).getTime() > STALE_THRESHOLD_MS;
+  return (job.status === "running" || job.status === "rate_limited") && Date.now() - new Date(job.updated_at).getTime() > STALE_THRESHOLD_MS;
 }
 
 function SyncTab() {
@@ -185,7 +194,8 @@ function SyncTab() {
     const p2 = data.phase2;
     const activelyRunning =
       (data.phase1?.status === "running") ||
-      (p2?.status === "running" && !isStale(p2));
+      (p2?.status === "running" && !isStale(p2)) ||
+      (p2?.status === "rate_limited");
     if (!activelyRunning) return;
     const id = setInterval(fetchStatus, 5000);
     return () => clearInterval(id);
@@ -265,7 +275,7 @@ function SyncTab() {
       {data?.phase1?.status === "completed" && (() => {
         const p2 = data.phase2;
         const activelyRunning = p2?.status === "running" && !isStale(p2);
-        const needsResume = p2?.status === "failed" || (p2 ? isStale(p2) : false);
+        const needsResume = p2?.status === "failed" || p2?.status === "rate_limited" || (p2 ? isStale(p2) : false);
         const label = syncing ? "Syncing…" : needsResume ? "Resume sync" : "Sync new activities";
         return (
           <Button
