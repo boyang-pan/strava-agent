@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Activity, ArrowRight, Watch, Heart } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,11 +53,14 @@ export default function LandingPage() {
           <Logo className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
           <span className="font-semibold text-sm tracking-tight">Training Chat</span>
         </div>
-        <Link href="/login">
-          <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-            Sign in
-          </Button>
-        </Link>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Link href="/login">
+            <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+              Sign in
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}
