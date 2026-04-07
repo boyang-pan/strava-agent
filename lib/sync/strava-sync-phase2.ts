@@ -72,13 +72,13 @@ export async function syncStravaActivitiesPhase2Batch(
   userId: string,
   batchSize = 80
 ): Promise<Phase2BatchResult> {
-  // Find existing running job or create a new one
+  // Find existing running or rate_limited job, or create a new one
   let { data: job } = await supabaseAdmin
     .from("strava_sync_jobs")
     .select("id, synced, total")
     .eq("user_id", userId)
     .eq("phase", 2)
-    .eq("status", "running")
+    .in("status", ["running", "rate_limited"])
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -91,6 +91,12 @@ export async function syncStravaActivitiesPhase2Batch(
       .single();
     if (jobError || !newJob) throw new Error(`Failed to create job: ${jobError?.message}`);
     job = newJob;
+  } else {
+    // Reset rate_limited back to running at the start of a new batch
+    await supabaseAdmin
+      .from("strava_sync_jobs")
+      .update({ status: "running", updated_at: new Date().toISOString() })
+      .eq("id", job.id);
   }
 
   const updateJob = (fields: Record<string, unknown>) =>
@@ -134,7 +140,8 @@ export async function syncStravaActivitiesPhase2Batch(
     const result = await fetchDetailedActivity(accessToken, activityId as number);
 
     if (result.error === "rate_limited") {
-      console.log(`[cron-p2] user ${userId}: rate limited mid-batch, stopping`);
+      console.log(`[cron-p2] user ${userId}: rate limited mid-batch, marking job`);
+      await updateJob({ status: "rate_limited" });
       break;
     }
     if (result.error) {
@@ -147,6 +154,7 @@ export async function syncStravaActivitiesPhase2Batch(
       const { used, limit } = parseRateLimitUsage(result.rateLimitUsage);
       if (used >= limit * BACKOFF_THRESHOLD) {
         console.log(`[cron-p2] user ${userId}: rate limit ${used}/${limit}, stopping batch early`);
+        await updateJob({ status: "rate_limited" });
         break;
       }
     }
