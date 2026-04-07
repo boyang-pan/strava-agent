@@ -36,5 +36,14 @@ export async function POST(req: Request) {
     })
     .catch(console.error);
 
+  resend.emails
+    .send({
+      from: "Training Chat <noreply@trainingchat.tech>",
+      to: "boyangpanworks@gmail.com",
+      subject: `New waitlist signup: ${normalizedEmail}`,
+      html: `<p><strong>${normalizedEmail}</strong> just joined the waitlist.</p>${strava_url ? `<p>Strava: ${strava_url}</p>` : ""}${use_case ? `<p>Use case: ${use_case}</p>` : ""}`,
+    })
+    .catch(console.error);
+
   return Response.json({ ok: true });
 }
