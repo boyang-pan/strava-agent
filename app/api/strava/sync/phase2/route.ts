@@ -1,8 +1,8 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { syncStravaActivitiesPhase2 } from "@/lib/sync/strava-sync-phase2";
+import { syncStravaActivitiesPhase2Batch } from "@/lib/sync/strava-sync-phase2";
 
-const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 20 minutes (cron runs every 15 min)
 
 export async function POST() {
   const user = await getAuthUser();
@@ -25,9 +25,6 @@ export async function POST() {
     }
   }
 
-  syncStravaActivitiesPhase2(user.id).catch((err) =>
-    console.error(`[sync-p2] resume failed for user ${user.id}:`, err)
-  );
-
-  return Response.json({ status: "resuming" });
+  const result = await syncStravaActivitiesPhase2Batch(user.id, 80);
+  return Response.json({ status: "resuming", processed: result.processed, remaining: result.remaining });
 }

@@ -50,6 +50,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/strava/callback") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/waitlist") ||
+    pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon");
 

@@ -39,6 +39,7 @@ export interface AgentMessage {
   plan?: AgentPlan;
   states: ReasoningState[];
   chart?: ChartPayload;
+  reasoning?: string;
   final_answer: string;
   duration_ms?: number;
   error?: boolean;

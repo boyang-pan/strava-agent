@@ -71,6 +71,14 @@ function parseStreamLine(
     return { updated, done: false };
   }
 
+  if (line.startsWith("r:")) {
+    try {
+      const chunk = JSON.parse(line.slice(2)) as string;
+      updated.reasoning = (updated.reasoning ?? "") + chunk;
+    } catch {}
+    return { updated, done: false };
+  }
+
   if (line.startsWith("9:") || line.startsWith("b:")) {
     // Tool call — remove "Planning" placeholder on first real tool, then append
     try {

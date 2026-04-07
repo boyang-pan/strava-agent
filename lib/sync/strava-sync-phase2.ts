@@ -55,6 +55,158 @@ async function fetchDetailedActivity(token: string, activityId: number) {
   };
 }
 
+export interface Phase2BatchResult {
+  processed: number;
+  remaining: number;
+  completed: boolean;
+  jobId: string;
+}
+
+/**
+ * Process a single batch of Phase 2 enrichment for a user.
+ * Finds or creates a running job row, processes up to `batchSize` activities,
+ * and returns. Designed to be called repeatedly by a cron job every 15 minutes.
+ * Does not sleep internally — the cron schedule handles timing.
+ */
+export async function syncStravaActivitiesPhase2Batch(
+  userId: string,
+  batchSize = 80
+): Promise<Phase2BatchResult> {
+  // Find existing running job or create a new one
+  let { data: job } = await supabaseAdmin
+    .from("strava_sync_jobs")
+    .select("id, synced, total")
+    .eq("user_id", userId)
+    .eq("phase", 2)
+    .eq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!job) {
+    const { data: newJob, error: jobError } = await supabaseAdmin
+      .from("strava_sync_jobs")
+      .insert({ user_id: userId, phase: 2, status: "running" })
+      .select()
+      .single();
+    if (jobError || !newJob) throw new Error(`Failed to create job: ${jobError?.message}`);
+    job = newJob;
+  }
+
+  const updateJob = (fields: Record<string, unknown>) =>
+    supabaseAdmin
+      .from("strava_sync_jobs")
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq("id", job!.id);
+
+  // Fetch batch of summary activities + count already detailed
+  const [{ data: summaryActivities, error }, { count: detailedCount }] = await Promise.all([
+    supabaseAdmin
+      .from("activities")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("sync_status", "summary")
+      .order("start_date", { ascending: false })
+      .limit(batchSize),
+    supabaseAdmin
+      .from("activities")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("sync_status", "detailed"),
+  ]);
+
+  if (error) throw new Error(`Failed to fetch summary activities: ${error.message}`);
+
+  // Nothing left to enrich
+  if (!summaryActivities || summaryActivities.length === 0) {
+    const total = detailedCount ?? 0;
+    await updateJob({ status: "completed", total, synced: total });
+    return { processed: 0, remaining: 0, completed: true, jobId: job!.id };
+  }
+
+  const alreadySynced = detailedCount ?? 0;
+  await updateJob({ synced: alreadySynced });
+
+  let accessToken = await refreshStravaToken(userId);
+  let processed = 0;
+
+  for (const { id: activityId } of summaryActivities) {
+    const result = await fetchDetailedActivity(accessToken, activityId as number);
+
+    if (result.error === "rate_limited") {
+      console.log(`[cron-p2] user ${userId}: rate limited mid-batch, stopping`);
+      break;
+    }
+    if (result.error) {
+      console.warn(`[cron-p2] user ${userId}: activity ${activityId} error ${result.error}`);
+      continue;
+    }
+
+    // Stop early if approaching 15-min rate limit — next cron tick handles more
+    if (result.rateLimitUsage) {
+      const { used, limit } = parseRateLimitUsage(result.rateLimitUsage);
+      if (used >= limit * BACKOFF_THRESHOLD) {
+        console.log(`[cron-p2] user ${userId}: rate limit ${used}/${limit}, stopping batch early`);
+        break;
+      }
+    }
+
+    await supabaseAdmin
+      .from("activities")
+      .update({ ...result.fields, sync_status: "detailed", synced_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("id", activityId);
+
+    if (result.segmentEfforts.length > 0) {
+      const rows = result.segmentEfforts.map((se) => ({
+        id: se.id,
+        user_id: userId,
+        activity_id: activityId as number,
+        segment_id: se.segment.id,
+        name: se.name,
+        elapsed_time: se.elapsed_time,
+        moving_time: se.moving_time,
+        start_date: se.start_date,
+        distance: se.distance,
+        average_watts: se.average_watts ?? null,
+        average_heartrate: se.average_heartrate ?? null,
+        max_heartrate: se.max_heartrate ?? null,
+        average_cadence: se.average_cadence ?? null,
+        pr_rank: se.pr_rank ?? null,
+        kom_rank: se.kom_rank ?? null,
+        achievements: se.achievements ? JSON.stringify(se.achievements) : null,
+      }));
+      const { error: seError } = await supabaseAdmin
+        .from("segment_efforts")
+        .upsert(rows, { onConflict: "user_id,id" });
+      if (seError) console.warn(`[cron-p2] segment efforts error for activity ${activityId}:`, seError.message);
+    }
+
+    processed++;
+    if (processed % 10 === 0) {
+      await updateJob({ synced: alreadySynced + processed });
+    }
+
+    await new Promise((r) => setTimeout(r, 300));
+  }
+
+  // Recount remaining after batch
+  const { count: remainingCount } = await supabaseAdmin
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("sync_status", "summary");
+
+  const remaining = remainingCount ?? 0;
+  const newSynced = alreadySynced + processed;
+  const completed = remaining === 0;
+
+  await updateJob({ synced: newSynced, ...(completed ? { status: "completed" } : {}) });
+  console.log(`[cron-p2] user ${userId}: batch done — processed=${processed}, remaining=${remaining}`);
+
+  return { processed, remaining, completed, jobId: job!.id };
+}
+
 export async function syncStravaActivitiesPhase2(userId: string): Promise<void> {
   // Create a sync job row for progress tracking
   const { data: job, error: jobError } = await supabaseAdmin

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, Loader2, Copy, Check, RotateCcw, ListChecks } from "lucide-react";
+import { ChevronDown, Loader2, Copy, Check, RotateCcw, ListChecks, Brain } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ReasoningStateRow } from "@/components/chat/reasoning-state";
@@ -18,6 +18,7 @@ interface MessageAgentProps {
 export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProps) {
   const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
   const [planExpanded, setPlanExpanded] = useState(false);
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -76,6 +77,27 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
                 </li>
               ))}
             </ol>
+          )}
+        </div>
+      )}
+
+      {/* Collapsible reasoning */}
+      {message.reasoning && (
+        <div className="mb-2">
+          <button
+            onClick={() => setReasoningExpanded((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1 group"
+          >
+            <ChevronDown
+              className={cn("w-3 h-3 transition-transform", !reasoningExpanded && "-rotate-90")}
+            />
+            <Brain className="w-3 h-3" />
+            <span>Reasoning</span>
+          </button>
+          {reasoningExpanded && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap ml-0.5">
+              {message.reasoning}
+            </p>
           )}
         </div>
       )}

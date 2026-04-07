@@ -1,23 +1,23 @@
 "use client";
 
-import { Activity } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 const EXAMPLE_PROMPTS: { label: string; prompt: string }[] = [
   {
     label: "Am I getting faster?",
-    prompt: "Am I getting faster? Focus on my running pace over the last 3 months only.",
+    prompt: "Am I getting faster? Identify the sport I do most frequently, then focus on my pace or speed trend over the last 3 months for that sport only.",
   },
   {
-    label: "Signs of overtraining?",
-    prompt: "Are there any signs of overtraining in my recent activity? Look at the last 4 weeks only.",
+    label: "Heart rate trends?",
+    prompt: "Has my average heart rate at the same pace improved over the last 6 months? Show me the trend.",
   },
   {
     label: "Best training month?",
     prompt: "Which was my best training month this year, and why?",
   },
   {
-    label: "How do I do after rest days?",
-    prompt: "How does my performance compare on runs that follow a rest day vs. consecutive run days? Use the last 2 months of data.",
+    label: "Signs of overtraining?",
+    prompt: "Are there any signs of overtraining in my recent activity? Look at the last 4 weeks only.",
   },
 ];
 
@@ -28,7 +28,7 @@ interface EmptyStateProps {
 export function EmptyState({ onPrompt }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center gap-6 px-6">
-      <Activity className="w-8 h-8 text-zinc-200 dark:text-zinc-700" />
+      <Logo className="w-8 h-8 text-zinc-200 dark:text-zinc-700" />
 
       <div className="space-y-1">
         <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
