@@ -64,7 +64,7 @@ function syncStatusCallout(data: SyncData): { text: string; variant: "info" | "s
   if (anyFailed) return { text: "Something went wrong during sync. Try reconnecting your Strava account.", variant: "error" };
   if (allDone) return { text: "All synced. New activities appear automatically within a few minutes of recording.", variant: "success" };
   if (p1Running) return { text: "Importing your activity history — basic queries will be available once this completes.", variant: "info" };
-  if (p1Done && p2Stale) return { text: "Enrichment stopped unexpectedly — click \"Resume sync\" below to continue.", variant: "error" };
+  if (p1Done && p2Stale) return { text: "Enrichment paused — resuming automatically, or click \"Resume sync\" to process a batch now.", variant: "error" };
   if (p1Done && p2ActivelyRunning) return { text: "Basic data is ready — try asking about your runs or weekly mileage. Calories, power, and segments are on their way.", variant: "info" };
   if (p1Done && !p2) return { text: "Activity summaries imported. Enrichment starting shortly…", variant: "info" };
   return null;
@@ -158,7 +158,7 @@ function SyncPhaseDetail({
   );
 }
 
-const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 20 min — cron runs every 15 min
 
 function isStale(job: SyncJob): boolean {
   return job.status === "running" && Date.now() - new Date(job.updated_at).getTime() > STALE_THRESHOLD_MS;

@@ -174,12 +174,32 @@ export async function POST(request: Request) {
             const result = streamText(phase2Config);
             let hasToolResults = false;
             let textSinceLastToolResult = false;
+            let reasoningBuffer = "";
+            let inFinalAnswer = false;
+            const DELIMITER = "[ANSWER]";
             for await (const chunk of result.fullStream) {
               let line: string | null = null;
 
               if (chunk.type === "text-delta") {
                 textSinceLastToolResult = true;
-                line = `0:${JSON.stringify(chunk.text)}\n`;
+                if (inFinalAnswer) {
+                  line = `0:${JSON.stringify(chunk.text)}\n`;
+                } else {
+                  reasoningBuffer += chunk.text;
+                  const idx = reasoningBuffer.indexOf(DELIMITER);
+                  if (idx !== -1) {
+                    const reasoning = reasoningBuffer.slice(0, idx).trimEnd();
+                    if (reasoning) {
+                      controller.enqueue(encoder.encode(`r:${JSON.stringify(reasoning)}\n`));
+                    }
+                    inFinalAnswer = true;
+                    const afterDelim = reasoningBuffer.slice(idx + DELIMITER.length).trimStart();
+                    if (afterDelim) {
+                      line = `0:${JSON.stringify(afterDelim)}\n`;
+                    }
+                    reasoningBuffer = "";
+                  }
+                }
               } else if (chunk.type === "tool-call") {
                 let parsedInput: unknown = chunk.input;
                 try { parsedInput = JSON.parse(chunk.input as string); } catch {}
@@ -189,6 +209,10 @@ export async function POST(request: Request) {
                 textSinceLastToolResult = false;
                 line = `a:${JSON.stringify({ result: chunk.output })}\n`;
               } else if (chunk.type === "finish") {
+                // Flush reasoning buffer if [ANSWER] was never found (fallback)
+                if (!inFinalAnswer && reasoningBuffer.trim()) {
+                  controller.enqueue(encoder.encode(`0:${JSON.stringify(reasoningBuffer.trim())}\n`));
+                }
                 // If the stream ended after tool calls but without a final answer,
                 // the model was likely cut off (e.g. by a silent rate limit failure).
                 if (hasToolResults && !textSinceLastToolResult) {
