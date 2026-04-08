@@ -17,7 +17,27 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Training Chat",
-  description: "Ask natural language questions about your Strava training data",
+  description: "Chat about your training data",
+  openGraph: {
+    title: "Training Chat",
+    description: "Chat about your training data",
+    url: "https://trainingchat.tech",
+    siteName: "Training Chat",
+    images: [
+      {
+        url: "https://trainingchat.tech/og-image.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Training Chat",
+    description: "Chat about your training data",
+    images: ["https://trainingchat.tech/og-image.png"],
+  },
 };
 
 export default function RootLayout({
