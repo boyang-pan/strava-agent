@@ -619,9 +619,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 shrink-0">
         <div className="max-w-2xl mx-auto">
           <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} onStop={handleStop} />
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center mt-2">
-            Notes from past conversations are always remembered.
-          </p>
+
         </div>
       </div>
       <span className="absolute bottom-3 right-4 text-[11px] text-zinc-300 dark:text-zinc-700 select-none pointer-events-none">
