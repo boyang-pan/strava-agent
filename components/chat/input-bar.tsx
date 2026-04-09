@@ -53,6 +53,7 @@ export function InputBar({ onSubmit, disabled, onStop }: InputBarProps) {
   }
 
   return (
+    <div className="space-y-1.5">
     <div
       className={cn(
         "border border-zinc-200 dark:border-zinc-700 rounded-lg flex items-end gap-2 p-2 transition-colors",
@@ -99,6 +100,10 @@ export function InputBar({ onSubmit, disabled, onStop }: InputBarProps) {
           <ArrowUp className="w-4 h-4" />
         </Button>
       )}
+    </div>
+    <p className="text-center text-[11px] text-zinc-400 dark:text-zinc-600 select-none">
+      Training Chat can make mistakes. Double-check responses.
+    </p>
     </div>
   );
 }
