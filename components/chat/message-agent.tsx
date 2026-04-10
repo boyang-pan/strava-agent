@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronDown, Loader2, Copy, Check, RotateCcw, ListChecks, Brain } from "lucide-react";
+import { useState } from "react";
+import { Copy, Check, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ReasoningStateRow } from "@/components/chat/reasoning-state";
+import { ThinkingContainer } from "@/components/chat/thinking-container";
 import { ChartBlock } from "@/components/chat/chart-block";
 import { cn } from "@/lib/utils";
 import type { AgentMessage } from "@/types";
@@ -16,34 +16,7 @@ interface MessageAgentProps {
 }
 
 export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProps) {
-  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
-  const [planExpanded, setPlanExpanded] = useState(false);
-  const [reasoningExpanded, setReasoningExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (isStreaming) setUserExpanded(null);
-  }, [isStreaming]);
-
-  const isExpanded = userExpanded ?? false;
-  const hasStates = message.states.length > 0;
-  const activeState = message.states.find((s) => s.status === "active");
-
-  function headerLabel() {
-    if (isStreaming) {
-      if (activeState) return activeState.label;
-      if (message.states[0]?.id === "planning") return "Planning";
-      return "Thinking";
-    }
-    const toolCount = message.states.filter(
-      (s) => s.id !== "planning" && s.status === "done"
-    ).length;
-    const timeStr = message.duration_ms
-      ? ` · ${Math.round(message.duration_ms / 1000)}s`
-      : "";
-    if (toolCount === 0) return `Thinking${timeStr}`;
-    return `Used ${toolCount} tool${toolCount !== 1 ? "s" : ""}${timeStr}`;
-  }
 
   function handleCopy() {
     navigator.clipboard.writeText(message.final_answer ?? "");
@@ -53,84 +26,13 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
 
   return (
     <div className="mb-6">
-      {/* Collapsible plan */}
-      {message.plan && message.plan.steps.length > 0 && (
-        <div className="mb-2">
-          <button
-            onClick={() => setPlanExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1 group"
-          >
-            <ChevronDown
-              className={cn(
-                "w-3 h-3 transition-transform",
-                !planExpanded && "-rotate-90"
-              )}
-            />
-            <ListChecks className="w-3 h-3" />
-            <span>Plan</span>
-          </button>
-          {planExpanded && (
-            <ol className="ml-5 flex flex-col gap-0.5 list-decimal">
-              {message.plan.steps.map((step, i) => (
-                <li key={i} className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  {step}
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      )}
-
-      {/* Collapsible reasoning */}
-      {message.reasoning && (
-        <div className="mb-2">
-          <button
-            onClick={() => setReasoningExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1 group"
-          >
-            <ChevronDown
-              className={cn("w-3 h-3 transition-transform", !reasoningExpanded && "-rotate-90")}
-            />
-            <Brain className="w-3 h-3" />
-            <span>Reasoning</span>
-          </button>
-          {reasoningExpanded && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap ml-0.5">
-              {message.reasoning}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Collapsible reasoning steps */}
-      {hasStates && (
-        <div className="mb-3">
-          <button
-            onClick={() => setUserExpanded((prev) => !(prev ?? false))}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1.5 group"
-          >
-            {isStreaming ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <ChevronDown
-                className={cn(
-                  "w-3 h-3 transition-transform",
-                  !isExpanded && "-rotate-90"
-                )}
-              />
-            )}
-            <span>{headerLabel()}</span>
-          </button>
-
-          {isExpanded && (
-            <div className="flex flex-col gap-1.5">
-              {message.states.map((state) => (
-                <ReasoningStateRow key={state.id} state={state} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <ThinkingContainer
+        reasoning={message.reasoning}
+        states={message.states}
+        isStreaming={isStreaming ?? false}
+        hasAnswer={!!message.final_answer}
+        duration_ms={message.duration_ms}
+      />
 
       {/* Chart */}
       {message.chart && <ChartBlock chart={message.chart} />}

@@ -17,7 +17,7 @@ export function createAgentTools(userId: string) {
         return {
           tables: {
             activities: {
-              description: "Mirror of Strava activities (scoped to current user)",
+              description: "Training activities from connected data sources (scoped to current user)",
               columns: {
                 id: "bigint — Strava activity ID",
                 user_id: "uuid — owner (always filter by this)",
@@ -134,7 +134,7 @@ export function createAgentTools(userId: string) {
       description:
         "Returns full details for a single activity by ID. Use when you need to drill into a specific activity beyond what aggregates provide.",
       inputSchema: z.object({
-        activity_id: z.number().describe("The Strava activity ID"),
+        activity_id: z.number().describe("The activity ID"),
       }),
       execute: async ({ activity_id }: { activity_id: number }) => {
         const { data, error } = await supabaseAdmin
@@ -200,7 +200,7 @@ export function createAgentTools(userId: string) {
         activity_id: z
           .number()
           .optional()
-          .describe("Strava activity ID to link this note to, if applicable"),
+          .describe("Activity ID to link this note to, if applicable"),
         note_date: z
           .string()
           .optional()
@@ -224,7 +224,7 @@ export function createAgentTools(userId: string) {
 
     render_chart: tool({
       description:
-        "Returns a chart payload for the frontend to render inline. Use when trends or comparisons are better expressed visually. Supported types: line, bar, scatter.",
+        "Returns a chart payload for the frontend to render inline. Use when trends or comparisons are better expressed visually. Supported types: line, bar, scatter. Always follow render_chart with a written analysis — never let a chart be your final action.",
       inputSchema: z.object({
         type: z.enum(["line", "bar", "scatter"]).describe("Chart type"),
         title: z.string().describe("Chart title"),
