@@ -20,6 +20,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const requestStart = Date.now();
+
     const { question, history, conversation_id } = await request.json();
 
     const userId = user.id;
@@ -46,7 +48,11 @@ export async function POST(request: Request) {
         ],
       });
       plan = object;
-      planSpan.log({ input: question, output: plan.steps });
+      planSpan.log({
+        input: question,
+        output: plan.steps,
+        metrics: { time_to_first_token: (Date.now() - requestStart) / 1000 },
+      });
     } catch (planErr) {
       console.error("Planning phase failed:", planErr);
     } finally {
