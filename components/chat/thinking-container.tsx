@@ -48,7 +48,7 @@ export function ThinkingContainer({
   return (
     <div className="mb-3">
       <button
-        onClick={() => setUserCollapsed(!isOpen)}
+        onClick={() => setUserCollapsed(isOpen)}
         className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mb-1.5"
       >
         {isStreaming && !hasAnswer ? (
@@ -67,25 +67,27 @@ export function ThinkingContainer({
 
       <div
         className={cn(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+          "grid transition-all duration-300 ease-in-out",
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
-        {reasoning && (
-          <div className="border-l-2 border-zinc-200 dark:border-zinc-700 pl-3 mb-2">
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed whitespace-pre-wrap">
-              {reasoning}
-            </p>
-          </div>
-        )}
+        <div className="overflow-hidden">
+          {reasoning && (
+            <div className="border-l-2 border-zinc-200 dark:border-zinc-700 pl-3 mb-2">
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed whitespace-pre-wrap">
+                {reasoning}
+              </p>
+            </div>
+          )}
 
-        {states.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            {states.map((state) => (
-              <ReasoningStateRow key={state.id} state={state} />
-            ))}
-          </div>
-        )}
+          {states.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {states.map((state) => (
+                <ReasoningStateRow key={state.id} state={state} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

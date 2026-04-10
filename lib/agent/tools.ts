@@ -224,7 +224,7 @@ export function createAgentTools(userId: string) {
 
     render_chart: tool({
       description:
-        "Returns a chart payload for the frontend to render inline. Use when trends or comparisons are better expressed visually. Supported types: line, bar, scatter. Always follow render_chart with a [ANSWER] and written analysis — never let a chart be your final action.",
+        "Returns a chart payload for the frontend to render inline. Use when trends or comparisons are better expressed visually. Supported types: line, bar, scatter. Always follow render_chart with a written analysis — never let a chart be your final action.",
       inputSchema: z.object({
         type: z.enum(["line", "bar", "scatter"]).describe("Chart type"),
         title: z.string().describe("Chart title"),

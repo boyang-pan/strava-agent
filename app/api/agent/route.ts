@@ -45,6 +45,14 @@ export async function POST(request: Request) {
     const answerSpan = span.startSpan({ name: "answer" });
     const phase2Config = {
       model: anthropic("claude-sonnet-4-6"),
+      providerOptions: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+          headers: {
+            "anthropic-beta": "interleaved-thinking-2025-05-14",
+          },
+        },
+      },
       system: systemPrompt,
       messages: [
         ...(history ?? []),
@@ -146,42 +154,14 @@ export async function POST(request: Request) {
             const result = streamText(phase2Config);
             let hasToolResults = false;
             let textSinceLastToolResult = false;
-            let reasoningBuffer = "";
-            let inFinalAnswer = false;
-            const DELIMITER = "[ANSWER]";
             for await (const chunk of result.fullStream) {
               let line: string | null = null;
 
-              if (chunk.type === "text-delta") {
+              if (chunk.type === "reasoning-delta") {
+                line = `r:${JSON.stringify(chunk.text)}\n`;
+              } else if (chunk.type === "text-delta") {
                 textSinceLastToolResult = true;
-                if (inFinalAnswer) {
-                  line = `0:${JSON.stringify(chunk.text)}\n`;
-                } else {
-                  reasoningBuffer += chunk.text;
-                  const idx = reasoningBuffer.indexOf(DELIMITER);
-                  if (idx !== -1) {
-                    // Emit any remaining reasoning before the delimiter
-                    const reasoning = reasoningBuffer.slice(0, idx).trimEnd();
-                    if (reasoning) {
-                      controller.enqueue(encoder.encode(`r:${JSON.stringify(reasoning)}\n`));
-                    }
-                    inFinalAnswer = true;
-                    const afterDelim = reasoningBuffer.slice(idx + DELIMITER.length).trimStart();
-                    if (afterDelim) {
-                      line = `0:${JSON.stringify(afterDelim)}\n`;
-                    }
-                    reasoningBuffer = "";
-                  } else {
-                    // Stream reasoning incrementally — keep only enough buffer to detect
-                    // the delimiter in case it spans multiple chunks
-                    const safeLength = reasoningBuffer.length - (DELIMITER.length - 1);
-                    if (safeLength > 0) {
-                      const toEmit = reasoningBuffer.slice(0, safeLength);
-                      controller.enqueue(encoder.encode(`r:${JSON.stringify(toEmit)}\n`));
-                      reasoningBuffer = reasoningBuffer.slice(safeLength);
-                    }
-                  }
-                }
+                line = `0:${JSON.stringify(chunk.text)}\n`;
               } else if (chunk.type === "tool-call") {
                 let parsedInput: unknown = chunk.input;
                 try { parsedInput = JSON.parse(chunk.input as string); } catch {}
@@ -191,10 +171,6 @@ export async function POST(request: Request) {
                 textSinceLastToolResult = false;
                 line = `a:${JSON.stringify({ result: chunk.output })}\n`;
               } else if (chunk.type === "finish") {
-                // Flush reasoning buffer if [ANSWER] was never found (fallback)
-                if (!inFinalAnswer && reasoningBuffer.trim()) {
-                  controller.enqueue(encoder.encode(`0:${JSON.stringify(reasoningBuffer.trim())}\n`));
-                }
                 // If the stream ended after tool calls but without a final answer,
                 // the model was likely cut off (e.g. by a silent rate limit failure).
                 if (hasToolResults && !textSinceLastToolResult) {
