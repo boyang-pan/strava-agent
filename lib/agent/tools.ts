@@ -268,6 +268,6 @@ function stripAndValidateQuery(sql: string): string | null {
   if (forbidden.some((kw) => new RegExp(`\\b${kw}\\b`).test(normalized))) {
     return null;
   }
-  return stripped;
+  return stripped.replace(/;+$/, "");
 }
 

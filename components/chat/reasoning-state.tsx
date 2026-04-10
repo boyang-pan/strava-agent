@@ -60,26 +60,119 @@ export function ReasoningStateRow({ state }: ReasoningStateRowProps) {
             {state.toolCall.tool}
           </p>
 
-          {state.toolCall.input !== undefined && (
-            <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">input</p>
-              <pre className="text-xs text-zinc-500 font-tool whitespace-pre-wrap break-all">
-                {JSON.stringify(state.toolCall.input, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {state.toolCall.output !== undefined && (
-            <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">output</p>
-              <div className="max-h-48 overflow-y-auto">
-                <pre className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all">
-                  {JSON.stringify(state.toolCall.output, null, 2)}
-                </pre>
-              </div>
-            </div>
-          )}
+          {state.toolCall.tool === "run_query"
+            ? <RunQueryDetail input={state.toolCall.input} output={state.toolCall.output} />
+            : <>
+                {state.toolCall.input !== undefined && (
+                  <div>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">input</p>
+                    <pre className="text-xs text-zinc-500 font-tool whitespace-pre-wrap break-all">
+                      {JSON.stringify(state.toolCall.input, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {state.toolCall.output !== undefined && (
+                  <div>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">output</p>
+                    <div className="max-h-48 overflow-y-auto">
+                      <pre className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all">
+                        {JSON.stringify(state.toolCall.output, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </>
+          }
         </div>
+      )}
+    </div>
+  );
+}
+
+const ROW_LIMIT = 5;
+
+function RunQueryDetail({ input, output }: { input: unknown; output: unknown }) {
+  const sql = (input as { sql?: string })?.sql;
+
+  return (
+    <div className="space-y-2">
+      {sql && (
+        <div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">query</p>
+          <pre className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all bg-zinc-100 dark:bg-zinc-800 rounded p-2">
+            {sql}
+          </pre>
+        </div>
+      )}
+
+      {output !== undefined && (
+        <div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">result</p>
+          <QueryResult output={output} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QueryResult({ output }: { output: unknown }) {
+  if (output && typeof output === "object" && "error" in output) {
+    return (
+      <p className="text-xs text-red-500 font-tool">
+        {String((output as { error: unknown }).error)}
+      </p>
+    );
+  }
+
+  const outputObj = output as { rows?: unknown[] } | null;
+  const allRows = Array.isArray(outputObj?.rows) ? outputObj.rows : null;
+
+  if (!allRows) {
+    return (
+      <pre className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all">
+        {JSON.stringify(output, null, 2)}
+      </pre>
+    );
+  }
+
+  if (allRows.length === 0) {
+    return <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool">No rows returned</p>;
+  }
+
+  const columns = Object.keys(allRows[0] as object);
+  const rows = allRows.slice(0, ROW_LIMIT);
+  const overflow = allRows.length - ROW_LIMIT;
+
+  return (
+    <div className="space-y-1">
+      <div className="overflow-x-auto">
+        <table className="text-xs font-tool w-full border-collapse">
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <th key={col} className="text-left text-zinc-400 dark:text-zinc-500 font-medium px-2 py-1 border-b border-zinc-200 dark:border-zinc-700 whitespace-nowrap">
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i}>
+                {columns.map((col) => (
+                  <td key={col} className="text-zinc-500 dark:text-zinc-400 px-2 py-1 border-b border-zinc-100 dark:border-zinc-800 whitespace-nowrap max-w-[200px] truncate">
+                    {String((row as Record<string, unknown>)[col] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {overflow > 0 && (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool px-2">
+          and {overflow} more {overflow === 1 ? "row" : "rows"}
+        </p>
       )}
     </div>
   );

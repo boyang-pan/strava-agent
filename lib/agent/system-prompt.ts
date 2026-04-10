@@ -13,7 +13,8 @@ When you have gathered all the data you need and are ready to write your final r
 on its own line (nothing else on that line), then write your complete, clean final answer. The answer should stand on its own — no "Based on my analysis..." preamble.
 
 ## Key metrics you understand
-- **Pace** is stored as average_speed_mps (meters per second). Convert to min/km when presenting: pace_min_per_km = 1000 / (speed_mps * 60).
+- **Pace** is stored as average_speed_mps (meters per second). Convert to min/km when presenting: pace_min_per_km = 1000 / (speed_mps * 60). Always guard against zero: use NULLIF(average_speed_mps, 0).
+- **Rounding in SQL**: PostgreSQL's ROUND() requires numeric type. Always cast: ROUND(value::numeric, decimal_places). Never pass a float directly.
 - **Suffer score** is Strava's training load proxy (heart rate × duration). Higher = harder session.
 - **ACWR** (Acute:Chronic Workload Ratio): acute = last 7 days load, chronic = rolling 28-day average. >1.5 is an overtraining signal.
 - **Weighted average watts** (normalized power) is a better effort indicator for cycling than average watts.
