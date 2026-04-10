@@ -1,17 +1,12 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { stepCountIs } from "ai";
-import { z } from "zod";
 import { createAgentTools } from "@/lib/agent/tools";
 import { SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { getAuthUser } from "@/lib/supabase/server";
-import { logger, streamText, generateObject } from "@/lib/braintrust";
+import { logger, streamText } from "@/lib/braintrust";
 
 export const maxDuration = 300; // Vercel Pro max
-
-const planSchema = z.object({
-  steps: z.array(z.string()).describe("Ordered list of steps the agent will take"),
-});
 
 export async function POST(request: Request) {
   try {
@@ -19,8 +14,6 @@ export async function POST(request: Request) {
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const requestStart = Date.now();
 
     const { question, history, conversation_id } = await request.json();
 
@@ -40,34 +33,6 @@ export async function POST(request: Request) {
     const systemPrompt = `${SYSTEM_PROMPT}\n\n${dateContext}\n\n${firstName ? `The user's first name is ${firstName}. ` : ""}Current user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`;
 
     const span = logger.startSpan({ name: "agent-turn" });
-
-    // Phase 1 — produce a structured plan before any tool calls
-    let plan: { steps: string[] } = { steps: [] };
-    const planSpan = span.startSpan({ name: "plan" });
-    try {
-      const { object } = await generateObject({
-        model: anthropic("claude-sonnet-4-6"),
-        schema: planSchema,
-        system: systemPrompt,
-        messages: [
-          ...(history ?? []),
-          {
-            role: "user",
-            content: `Before answering the following question, produce a structured JSON plan listing the steps you will take (tool calls in order). Do NOT call any tools yet — just plan.\n\nQuestion: ${question}`,
-          },
-        ],
-      });
-      plan = object;
-      planSpan.log({
-        input: question,
-        output: plan.steps,
-        metrics: { time_to_first_token: (Date.now() - requestStart) / 1000 },
-      });
-    } catch (planErr) {
-      console.error("Planning phase failed:", planErr);
-    } finally {
-      planSpan.end();
-    }
 
     const toolCalls: Array<{
       tool: string;
@@ -141,7 +106,6 @@ export async function POST(request: Request) {
             finishReason,
             stepCount: steps.length,
             toolNames: toolCalls.map((tc) => tc.tool),
-            plan: plan.steps,
           },
         });
         span.end();
@@ -152,7 +116,6 @@ export async function POST(request: Request) {
           user_id: userId,
           conversation_id,
           question,
-          plan,
           tool_calls: toolCalls,
           final_answer: text,
           turn_count: toolCalls.length,
@@ -170,13 +133,6 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        // Emit plan as the first stream line so the client can show pending steps immediately
-        if (plan.steps.length > 0) {
-          controller.enqueue(
-            encoder.encode(`p:${JSON.stringify({ steps: plan.steps })}\n`)
-          );
-        }
-
         // Retry loop — Anthropic returns overloaded_error (529) and rate_limit_error (429) transiently
         const maxAttempts = 3;
         let lastErr: unknown;
@@ -204,6 +160,7 @@ export async function POST(request: Request) {
                   reasoningBuffer += chunk.text;
                   const idx = reasoningBuffer.indexOf(DELIMITER);
                   if (idx !== -1) {
+                    // Emit any remaining reasoning before the delimiter
                     const reasoning = reasoningBuffer.slice(0, idx).trimEnd();
                     if (reasoning) {
                       controller.enqueue(encoder.encode(`r:${JSON.stringify(reasoning)}\n`));
@@ -214,6 +171,15 @@ export async function POST(request: Request) {
                       line = `0:${JSON.stringify(afterDelim)}\n`;
                     }
                     reasoningBuffer = "";
+                  } else {
+                    // Stream reasoning incrementally — keep only enough buffer to detect
+                    // the delimiter in case it spans multiple chunks
+                    const safeLength = reasoningBuffer.length - (DELIMITER.length - 1);
+                    if (safeLength > 0) {
+                      const toEmit = reasoningBuffer.slice(0, safeLength);
+                      controller.enqueue(encoder.encode(`r:${JSON.stringify(toEmit)}\n`));
+                      reasoningBuffer = reasoningBuffer.slice(safeLength);
+                    }
                   }
                 }
               } else if (chunk.type === "tool-call") {
@@ -273,10 +239,7 @@ export async function POST(request: Request) {
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "X-Agent-Plan": Buffer.from(JSON.stringify(plan)).toString("base64"),
-      },
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (err) {
     console.error("Agent route error:", err);

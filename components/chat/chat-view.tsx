@@ -159,10 +159,27 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
 
   if (toolName === "run_query" && input?.sql) {
     const sql = String(input.sql).trim().toLowerCase();
+    // Check primary intent first — these win even if other columns are present
+    if (sql.includes("segment")) return "Querying segment data";
+    if (sql.includes("heartrate") || sql.includes("heart_rate")) return "Querying heart rate data";
+    if (sql.includes("pace") || sql.includes("speed_mps")) return "Querying pace data";
+    if (sql.includes("calories") || sql.includes("kilojoules")) return "Querying energy data";
+    // Volume/distance is a common secondary column — only label it if it's clearly primary
+    if (sql.includes("sum(distance") || sql.includes("sum(moving_time") || sql.includes("count(*)")) return "Querying training volume";
+    // Elevation and time-based groupings are lower priority
+    if (sql.includes("elevation")) return "Querying elevation data";
     if (sql.includes("week")) return "Querying weekly data";
     if (sql.includes("month")) return "Querying monthly data";
-    if (sql.includes("pace") || sql.includes("speed")) return "Querying pace data";
-    if (sql.includes("heartrate")) return "Querying heart rate data";
+    if (sql.includes("year")) return "Querying yearly data";
+  }
+
+  if (toolName === "render_chart" && input?.title) {
+    return `Preparing chart: ${String(input.title)}`;
+  }
+
+  if (toolName === "ask_user" && input?.question) {
+    const q = String(input.question);
+    return `Asking: ${q.length > 60 ? q.slice(0, 57) + "…" : q}`;
   }
 
   return labels[toolName] ?? toolName;
