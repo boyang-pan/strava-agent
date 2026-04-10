@@ -9,7 +9,6 @@ import { createClient } from "@supabase/supabase-js";
 import {
   schemaBeforeQuery,
   schemaLeadsToQuery,
-  dateContextForTimeQuestions,
 } from "./scorers";
 
 type ToolCall = { tool: string; input: unknown; output: unknown; duration_ms: number };
@@ -75,7 +74,6 @@ Eval("strava-agent", {
   scores: [
     schemaBeforeQuery,
     schemaLeadsToQuery,
-    dateContextForTimeQuestions,
     initFunction({ projectName: "strava-agent", slug: "unitconversioninsql-dfca" }),
   ],
   experimentName: "phase1-deterministic-fixed-scorer",

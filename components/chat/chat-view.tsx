@@ -148,7 +148,6 @@ function parseStreamLine(
 function labelForTool(toolName: string, input: Record<string, unknown>): string {
   const labels: Record<string, string> = {
     get_schema: "Reading the database schema",
-    get_date_context: "Checking today's date",
     run_query: "Running a query",
     get_activity_detail: "Getting activity detail",
     get_personal_records: "Fetching personal records",
