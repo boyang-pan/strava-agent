@@ -1,11 +1,11 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, generateObject, stepCountIs } from "ai";
+import { stepCountIs } from "ai";
 import { z } from "zod";
 import { createAgentTools } from "@/lib/agent/tools";
 import { SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { getAuthUser } from "@/lib/supabase/server";
-import { logger } from "@/lib/braintrust";
+import { logger, streamText, generateObject } from "@/lib/braintrust";
 
 export const maxDuration = 300; // Vercel Pro max
 
@@ -19,6 +19,8 @@ export async function POST(request: Request) {
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const requestStart = Date.now();
 
     const { question, history, conversation_id } = await request.json();
 
@@ -46,7 +48,11 @@ export async function POST(request: Request) {
         ],
       });
       plan = object;
-      planSpan.log({ input: question, output: plan.steps });
+      planSpan.log({
+        input: question,
+        output: plan.steps,
+        metrics: { time_to_first_token: (Date.now() - requestStart) / 1000 },
+      });
     } catch (planErr) {
       console.error("Planning phase failed:", planErr);
     } finally {
