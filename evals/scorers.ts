@@ -32,16 +32,8 @@ export function schemaLeadsToQuery({ output }: ScorerArgs): number | null {
   return tools.some((t) => DATA_TOOLS.has(t)) ? 1 : 0;
 }
 
-// 3. Time-scoped questions must call get_date_context.
-// Matches: "last week/month/year", "this month", "past N days", "yesterday", "recently", etc.
-const TIME_RE =
-  /\b(last|this|past|previous)\s+(week|month|year|season)|yesterday|recent(ly)?|\d+\s+(days?|weeks?|months?)\s+ago/i;
-
-export function dateContextForTimeQuestions({ input, output }: ScorerArgs): number | null {
-  if (!TIME_RE.test(input.question)) return null;
-  const tools = output.tool_calls.map((tc) => tc.tool);
-  return tools.includes("get_date_context") ? 1 : 0;
-}
+// 3. (removed) get_date_context was a tool; date context is now pre-injected into the system
+// prompt at request time, so this check is no longer applicable.
 
 // 4. Pace/speed questions must use the m/s → min/km conversion formula in SQL.
 // Formula: 1000 / (average_speed_mps * 60)

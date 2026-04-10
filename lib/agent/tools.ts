@@ -98,20 +98,6 @@ export function createAgentTools(userId: string) {
       },
     }),
 
-    get_date_context: tool({
-      description:
-        "Returns today's date and day of week. Always call this before any time-based queries to ensure correct period reasoning.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const now = new Date();
-        return {
-          today: now.toISOString().split("T")[0],
-          day_of_week: now.toLocaleDateString("en-US", { weekday: "long" }),
-          iso_week_start: getWeekStart(now),
-          month_start: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
-        };
-      },
-    }),
 
     run_query: tool({
       description:
@@ -285,10 +271,3 @@ function stripAndValidateQuery(sql: string): string | null {
   return stripped;
 }
 
-function getWeekStart(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return d.toISOString().split("T")[0];
-}
