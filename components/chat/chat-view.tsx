@@ -372,7 +372,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question, history, conversation_id: convId }),
+          body: JSON.stringify({ question, history, conversation_id: convId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
           signal: controller.signal,
         });
 
