@@ -225,16 +225,23 @@ function SyncTab() {
   if (loading) {
     return (
       <div className="space-y-5 py-2 animate-pulse">
+        {/* Callout */}
         <div className="h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+        {/* Phase 1 */}
         <div className="space-y-2">
-          <div className="h-4 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-3 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-3.5 w-2/5 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-2.5 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800" />
         </div>
         <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+        {/* Phase 2 */}
         <div className="space-y-2">
-          <div className="h-4 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-3 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-3.5 w-2/5 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-2.5 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800" />
         </div>
+        {/* Button */}
+        <div className="h-9 w-full rounded-md bg-zinc-100 dark:bg-zinc-800" />
       </div>
     );
   }

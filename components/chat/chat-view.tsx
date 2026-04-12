@@ -7,7 +7,7 @@ import { InputBar } from "@/components/chat/input-bar";
 import { EmptyState } from "@/components/chat/empty-state";
 import type { AgentMessage, Conversation, Message } from "@/types";
 import { useSidebar } from "@/components/layout/resizable-layout";
-import { Activity, PanelLeftOpen, Pencil, ChevronDown, Trash2 } from "lucide-react";
+import { PanelLeftOpen, Pencil, ChevronDown, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -597,9 +597,28 @@ export function ChatView({ conversationId }: ChatViewProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
         {isLoadingHistory ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
-            <Activity className="w-8 h-8 text-zinc-200 dark:text-zinc-700 animate-pulse" />
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">Loading conversation...</p>
+          <div className="max-w-2xl mx-auto px-6 py-6 w-full animate-pulse space-y-6">
+            {/* user bubble */}
+            <div className="flex justify-end">
+              <div className="h-9 w-48 rounded-2xl bg-zinc-100 dark:bg-zinc-800" />
+            </div>
+            {/* agent block */}
+            <div className="space-y-2">
+              <div className="h-3.5 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-3.5 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-3.5 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
+            </div>
+            {/* user bubble */}
+            <div className="flex justify-end">
+              <div className="h-9 w-32 rounded-2xl bg-zinc-100 dark:bg-zinc-800" />
+            </div>
+            {/* agent block */}
+            <div className="space-y-2">
+              <div className="h-3.5 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-3.5 w-2/3 rounded bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-3.5 w-5/6 rounded bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-3.5 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800" />
+            </div>
           </div>
         ) : messages.length === 0 ? (
           <EmptyState onPrompt={handleSubmit} />
