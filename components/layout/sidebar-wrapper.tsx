@@ -11,6 +11,7 @@ export function SidebarWrapper() {
   const router = useRouter();
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,12 +37,14 @@ export function SidebarWrapper() {
     : null;
 
   useEffect(() => {
+    setIsLoadingConversations(true);
     fetch("/api/conversations")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setConversations(data);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoadingConversations(false));
   }, [pathname]);
 
   useEffect(() => {
@@ -102,6 +105,7 @@ export function SidebarWrapper() {
     <>
       <Sidebar
         conversations={conversations}
+        isLoadingConversations={isLoadingConversations}
         activeId={activeId}
         onSelect={handleSelect}
         onNew={handleNew}

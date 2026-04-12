@@ -18,6 +18,7 @@ import type { Conversation } from "@/types";
 
 interface SidebarProps {
   conversations: Conversation[];
+  isLoadingConversations?: boolean;
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -277,7 +278,7 @@ function SyncCard({ onViewDetails }: { onViewDetails: () => void }) {
 }
 
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, userName, onLogout, onOpenModal }: SidebarProps) {
+export function Sidebar({ conversations, isLoadingConversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, userName, onLogout, onOpenModal }: SidebarProps) {
   const groups = groupByRecency(conversations);
   const sidebar = useSidebar();
 
@@ -315,57 +316,70 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
       {/* Conversation list */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <div className="px-1.5 pb-2">
-          {conversations.length === 0 && (
+          {isLoadingConversations ? (
+            <div className="px-1.5 pt-2 space-y-1 animate-pulse">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="px-3 py-2 space-y-1.5">
+                  <div className={cn("h-3.5 rounded bg-zinc-100 dark:bg-zinc-800", i % 2 === 0 ? "w-3/4" : "w-1/2")} />
+                  <div className="h-2.5 w-1/4 rounded bg-zinc-100 dark:bg-zinc-800" />
+                </div>
+              ))}
+            </div>
+          ) : conversations.length === 0 ? (
             <p className="text-xs text-zinc-400 dark:text-zinc-500 px-3 pt-4 text-center">
               No conversations yet
             </p>
-          )}
+          ) : null}
 
-          {groups.today.length > 0 && (
+          {!isLoadingConversations && (
             <>
-              <GroupLabel label="Today" />
-              {groups.today.map((c) => (
-                <ConversationItem
-                  key={c.id}
-                  conversation={c}
-                  isActive={c.id === activeId}
-                  onSelect={() => onSelect(c.id)}
-                  onDelete={() => onDelete(c.id)}
-                  onRename={(title) => onRename(c.id, title)}
-                />
-              ))}
-            </>
-          )}
+              {groups.today.length > 0 && (
+                <>
+                  <GroupLabel label="Today" />
+                  {groups.today.map((c) => (
+                    <ConversationItem
+                      key={c.id}
+                      conversation={c}
+                      isActive={c.id === activeId}
+                      onSelect={() => onSelect(c.id)}
+                      onDelete={() => onDelete(c.id)}
+                      onRename={(title) => onRename(c.id, title)}
+                    />
+                  ))}
+                </>
+              )}
 
-          {groups.thisWeek.length > 0 && (
-            <>
-              <GroupLabel label="This week" />
-              {groups.thisWeek.map((c) => (
-                <ConversationItem
-                  key={c.id}
-                  conversation={c}
-                  isActive={c.id === activeId}
-                  onSelect={() => onSelect(c.id)}
-                  onDelete={() => onDelete(c.id)}
-                  onRename={(title) => onRename(c.id, title)}
-                />
-              ))}
-            </>
-          )}
+              {groups.thisWeek.length > 0 && (
+                <>
+                  <GroupLabel label="This week" />
+                  {groups.thisWeek.map((c) => (
+                    <ConversationItem
+                      key={c.id}
+                      conversation={c}
+                      isActive={c.id === activeId}
+                      onSelect={() => onSelect(c.id)}
+                      onDelete={() => onDelete(c.id)}
+                      onRename={(title) => onRename(c.id, title)}
+                    />
+                  ))}
+                </>
+              )}
 
-          {groups.earlier.length > 0 && (
-            <>
-              <GroupLabel label="Earlier" />
-              {groups.earlier.map((c) => (
-                <ConversationItem
-                  key={c.id}
-                  conversation={c}
-                  isActive={c.id === activeId}
-                  onSelect={() => onSelect(c.id)}
-                  onDelete={() => onDelete(c.id)}
-                  onRename={(title) => onRename(c.id, title)}
-                />
-              ))}
+              {groups.earlier.length > 0 && (
+                <>
+                  <GroupLabel label="Earlier" />
+                  {groups.earlier.map((c) => (
+                    <ConversationItem
+                      key={c.id}
+                      conversation={c}
+                      isActive={c.id === activeId}
+                      onSelect={() => onSelect(c.id)}
+                      onDelete={() => onDelete(c.id)}
+                      onRename={(title) => onRename(c.id, title)}
+                    />
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>
