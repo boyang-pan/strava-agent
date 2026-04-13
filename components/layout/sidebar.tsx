@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings } from "lucide-react";
+import { Plus, Trash2, Pencil, MoreHorizontal, PanelLeftClose, Settings, Search, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { useSidebar } from "@/components/layout/resizable-layout";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import type { Conversation } from "@/types";
 interface SidebarProps {
   conversations: Conversation[];
   isLoadingConversations?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -278,8 +280,13 @@ function SyncCard({ onViewDetails }: { onViewDetails: () => void }) {
 }
 
 
-export function Sidebar({ conversations, isLoadingConversations, activeId, onSelect, onNew, onDelete, onRename, userEmail, userName, onLogout, onOpenModal }: SidebarProps) {
-  const groups = groupByRecency(conversations);
+export function Sidebar({ conversations, isLoadingConversations, searchQuery = "", onSearchChange, activeId, onSelect, onNew, onDelete, onRename, userEmail, userName, onLogout, onOpenModal }: SidebarProps) {
+  const filtered = searchQuery.trim()
+    ? conversations.filter((c) =>
+        (c.title ?? "New conversation").toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : conversations;
+  const groups = groupByRecency(filtered);
   const sidebar = useSidebar();
 
   return (
@@ -313,6 +320,27 @@ export function Sidebar({ conversations, isLoadingConversations, activeId, onSel
 
       <Separator className="bg-zinc-100 dark:bg-zinc-800" />
 
+      {/* Search */}
+      {!isLoadingConversations && conversations.length > 0 && (
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent">
+            <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+            <input
+              value={searchQuery}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && onSearchChange?.("")}
+              placeholder="Search..."
+              className="flex-1 text-xs bg-transparent outline-none text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+            />
+            {searchQuery && (
+              <button onClick={() => onSearchChange?.("")} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Conversation list */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <div className="px-1.5 pb-2">
@@ -329,9 +357,28 @@ export function Sidebar({ conversations, isLoadingConversations, activeId, onSel
             <p className="text-xs text-zinc-400 dark:text-zinc-500 px-3 pt-4 text-center">
               No conversations yet
             </p>
+          ) : filtered.length === 0 ? (
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 px-3 pt-4 text-center">
+              No matches
+            </p>
           ) : null}
 
-          {!isLoadingConversations && (
+          {!isLoadingConversations && searchQuery.trim() && filtered.length > 0 && (
+            <>
+              {filtered.map((c) => (
+                <ConversationItem
+                  key={c.id}
+                  conversation={c}
+                  isActive={c.id === activeId}
+                  onSelect={() => onSelect(c.id)}
+                  onDelete={() => onDelete(c.id)}
+                  onRename={(title) => onRename(c.id, title)}
+                />
+              ))}
+            </>
+          )}
+
+          {!isLoadingConversations && !searchQuery.trim() && (
             <>
               {groups.today.length > 0 && (
                 <>
