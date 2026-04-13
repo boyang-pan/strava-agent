@@ -12,6 +12,7 @@ export function SidebarWrapper() {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -73,6 +74,18 @@ export function SidebarWrapper() {
     if (data?.id) router.push(`/chat/${data.id}`);
   }
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        handleNew();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSelect(id: string) {
     router.push(`/chat/${id}`);
   }
@@ -106,6 +119,8 @@ export function SidebarWrapper() {
       <Sidebar
         conversations={conversations}
         isLoadingConversations={isLoadingConversations}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         activeId={activeId}
         onSelect={handleSelect}
         onNew={handleNew}
