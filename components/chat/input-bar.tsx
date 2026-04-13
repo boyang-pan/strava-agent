@@ -9,11 +9,13 @@ interface InputBarProps {
   onSubmit: (value: string) => void;
   disabled?: boolean;
   onStop?: () => void;
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
-export function InputBar({ onSubmit, disabled, onStop }: InputBarProps) {
+export function InputBar({ onSubmit, disabled, onStop, textareaRef: externalRef }: InputBarProps) {
   const [value, setValue] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = externalRef ?? internalRef;
 
   // Focus on mount and whenever streaming finishes (disabled: true → false)
   const prevDisabled = useRef(disabled);

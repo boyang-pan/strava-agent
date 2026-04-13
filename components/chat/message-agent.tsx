@@ -12,11 +12,15 @@ import type { AgentMessage } from "@/types";
 interface MessageAgentProps {
   message: AgentMessage;
   isStreaming?: boolean;
+  createdAt?: string;
   onRetry?: () => void;
 }
 
-export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProps) {
+export function MessageAgent({ message, isStreaming, createdAt, onRetry }: MessageAgentProps) {
   const [copied, setCopied] = useState(false);
+  const time = createdAt
+    ? new Date(createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : null;
 
   function handleCopy() {
     navigator.clipboard.writeText(message.final_answer ?? "");
@@ -115,16 +119,21 @@ export function MessageAgent({ message, isStreaming, onRetry }: MessageAgentProp
           </div>
 
           {!isStreaming && !message.error && (
-            <button
-              onClick={handleCopy}
-              className="absolute -bottom-5 right-0 opacity-0 group-hover/answer:opacity-100 transition-opacity flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
-            >
-              {copied ? (
-                <><Check className="w-3 h-3" /> Copied</>
-              ) : (
-                <><Copy className="w-3 h-3" /> Copy</>
-              )}
-            </button>
+            <div className="absolute -bottom-5 inset-x-0 flex items-center justify-between opacity-0 group-hover/answer:opacity-100 transition-opacity">
+              {time ? (
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 select-none">{time}</span>
+              ) : <span />}
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                {copied ? (
+                  <><Check className="w-3 h-3" /> Copied</>
+                ) : (
+                  <><Copy className="w-3 h-3" /> Copy</>
+                )}
+              </button>
+            </div>
           )}
 
           {message.error && onRetry && !isStreaming && (

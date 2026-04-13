@@ -20,6 +20,7 @@ interface LocalMessage {
   id: string;
   role: "user" | "assistant";
   content: string | AgentMessage;
+  createdAt?: string;
 }
 
 interface ChatViewProps {
@@ -199,6 +200,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const lastQuestionRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const inputBarRef = useRef<HTMLTextAreaElement>(null);
   // Tracks a conversation ID we just created ourselves so the reset
   // effect below doesn't wipe messages when the URL updates to the new ID
   const selfCreatedIdRef = useRef<string | null>(null);
@@ -232,6 +234,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
                 ? m.content
                 : JSON.stringify(m.content)
               : (m.content as AgentMessage),
+          createdAt: m.created_at,
         }));
         setMessages(loaded);
         if (loaded.length > 0) setHasTitleBeenSet(true);
@@ -248,6 +251,20 @@ export function ChatView({ conversationId }: ChatViewProps) {
       })
       .catch(() => {});
   }, [conversationId]);
+
+  // Press "/" anywhere to focus the chat input
+  useEffect(() => {
+    function handleSlash(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "/") {
+        e.preventDefault();
+        inputBarRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleSlash);
+    return () => document.removeEventListener("keydown", handleSlash);
+  }, []);
 
   // Auto-select input text when title editing starts
   useLayoutEffect(() => {
@@ -630,6 +647,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
                   <MessageUser
                     key={msg.id}
                     content={msg.content as string}
+                    createdAt={msg.createdAt}
                   />
                 );
               }
@@ -638,6 +656,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
                   key={msg.id}
                   message={msg.content as AgentMessage}
                   isStreaming={isLoading && msg.id === lastAgentMsgId}
+                  createdAt={msg.createdAt}
                   onRetry={
                     msg.id === lastAgentMsgId && (msg.content as AgentMessage).error
                       ? () => handleSubmit(lastQuestionRef.current)
@@ -653,7 +672,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       {/* Input */}
       <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 shrink-0">
         <div className="max-w-2xl mx-auto">
-          <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} onStop={handleStop} />
+          <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} onStop={handleStop} textareaRef={inputBarRef} />
 
         </div>
       </div>
