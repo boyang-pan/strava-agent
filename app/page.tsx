@@ -68,7 +68,7 @@ export default function LandingPage() {
         <h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 max-w-xl leading-tight">
           Chat about your training data.
         </h1>
-        <p className="mt-5 text-lg text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">
+        <p className="mt-5 text-lg text-zinc-500 dark:text-zinc-400 max-w-lg leading-relaxed">
           Connect your training data and ask anything in plain English. Pace trends, recovery, personal bests, and more.
         </p>
 
@@ -172,7 +172,7 @@ export default function LandingPage() {
               <div className="flex-1 px-5 py-4 space-y-4 overflow-hidden">
                 {/* User message */}
                 <div className="flex justify-end">
-                  <div className="text-xs text-zinc-700 dark:text-zinc-300 max-w-xs text-right bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl px-3 py-2">
+                  <div className="text-xs text-zinc-700 dark:text-zinc-300 max-w-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl px-3 py-2">
                     How did my long rides this month compare to last month?
                   </div>
                 </div>
