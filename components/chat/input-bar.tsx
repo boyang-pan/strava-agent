@@ -58,7 +58,7 @@ export function InputBar({ onSubmit, disabled, onStop, textareaRef: externalRef 
     <div className="space-y-1.5">
     <div
       className={cn(
-        "border border-zinc-200 dark:border-zinc-700 rounded-lg flex items-end gap-2 p-2 transition-colors",
+        "border border-zinc-200 dark:border-zinc-700 rounded-lg flex items-center gap-2 p-2 transition-colors",
         "focus-within:border-zinc-400 dark:focus-within:border-zinc-500"
       )}
     >
