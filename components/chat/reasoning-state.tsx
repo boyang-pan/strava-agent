@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, ChevronDown, Dot, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Check, ChevronDown, Copy, Dot, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReasoningState } from "@/types";
 
@@ -91,19 +91,39 @@ export function ReasoningStateRow({ state }: ReasoningStateRowProps) {
 
 const ROW_LIMIT = 5;
 
+function SqlBlock({ sql }: { sql: string }) {
+  const [copied, setCopied] = useState(false);
+  const ref = useRef<HTMLPreElement>(null);
+  function handleCopy() {
+    navigator.clipboard.writeText(ref.current?.textContent ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div>
+      <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">query</p>
+      <div className="relative">
+        <pre ref={ref} className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all bg-zinc-100 dark:bg-zinc-800 rounded p-2 pr-8">
+          {sql}
+        </pre>
+        <button
+          onClick={handleCopy}
+          className="absolute top-1.5 right-1.5 p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+          aria-label="Copy SQL"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RunQueryDetail({ input, output }: { input: unknown; output: unknown }) {
   const sql = (input as { sql?: string })?.sql;
 
   return (
     <div className="space-y-2">
-      {sql && (
-        <div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-tool mb-0.5">query</p>
-          <pre className="text-xs text-zinc-500 dark:text-zinc-400 font-tool whitespace-pre-wrap break-all bg-zinc-100 dark:bg-zinc-800 rounded p-2">
-            {sql}
-          </pre>
-        </div>
-      )}
+      {sql && <SqlBlock sql={sql} />}
 
       {output !== undefined && (
         <div>

@@ -112,17 +112,24 @@ function ConversationItem({
             className="w-full text-sm bg-transparent outline-none border-b border-zinc-300 dark:border-zinc-600 leading-snug text-zinc-900 dark:text-zinc-100"
           />
         ) : (
-          <p
-            className={cn(
-              "text-sm truncate leading-snug",
-              isActive
-                ? "font-medium text-zinc-900 dark:text-zinc-100"
-                : "font-normal text-zinc-700 dark:text-zinc-300",
-              !conversation.title && "italic text-zinc-400 dark:text-zinc-500"
-            )}
-          >
-            {conversation.title ?? "New conversation"}
-          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p
+                className={cn(
+                  "text-sm truncate leading-snug",
+                  isActive
+                    ? "font-medium text-zinc-900 dark:text-zinc-100"
+                    : "font-normal text-zinc-700 dark:text-zinc-300",
+                  !conversation.title && "italic text-zinc-400 dark:text-zinc-500"
+                )}
+              >
+                {conversation.title ?? "New conversation"}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[220px]">
+              {conversation.title ?? "New conversation"}
+            </TooltipContent>
+          </Tooltip>
         )}
         <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
           {relativeTime(conversation.created_at)}
