@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Copy, Check, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,6 +14,33 @@ interface MessageAgentProps {
   isStreaming?: boolean;
   createdAt?: string;
   onRetry?: () => void;
+}
+
+function PreBlock({ children }: { children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const ref = useRef<HTMLPreElement>(null);
+  function handleCopy() {
+    navigator.clipboard.writeText(ref.current?.textContent ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div className="relative mb-3 last:mb-0">
+      <pre
+        ref={ref}
+        className="text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2 pr-8 font-mono overflow-x-auto text-zinc-700 dark:text-zinc-300"
+      >
+        {children}
+      </pre>
+      <button
+        onClick={handleCopy}
+        className="absolute top-1.5 right-1.5 p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+        aria-label="Copy code"
+      >
+        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      </button>
+    </div>
+  );
 }
 
 export function MessageAgent({ message, isStreaming, createdAt, onRetry }: MessageAgentProps) {
@@ -81,18 +108,12 @@ export function MessageAgent({ message, isStreaming, createdAt, onRetry }: Messa
                   <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1 mt-3 first:mt-0">{children}</h3>
                 ),
                 code: ({ children, className }) => {
-                  const isBlock = className?.includes("language-");
-                  return isBlock ? (
-                    <code className="block text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2 font-mono overflow-x-auto text-zinc-700 dark:text-zinc-300">
-                      {children}
-                    </code>
-                  ) : (
+                  if (className?.includes("language-")) return <>{children}</>;
+                  return (
                     <code className="text-xs bg-zinc-100 dark:bg-zinc-800 rounded px-1 py-0.5 font-mono text-zinc-700 dark:text-zinc-300">{children}</code>
                   );
                 },
-                pre: ({ children }) => (
-                  <pre className="mb-3 last:mb-0">{children}</pre>
-                ),
+                pre: ({ children }) => <PreBlock>{children}</PreBlock>,
                 hr: () => <hr className="border-zinc-200 dark:border-zinc-700 my-3" />,
                 table: ({ children }) => (
                   <div className="overflow-x-auto mb-3">
