@@ -17,10 +17,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Training Chat",
-  description: "Chat about your training data",
+  description: "Chat with your training data",
   openGraph: {
     title: "Training Chat",
-    description: "Chat about your training data",
+    description: "Chat with your training data",
     url: "https://trainingchat.tech",
     siteName: "Training Chat",
     images: [
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Training Chat",
-    description: "Chat about your training data",
+    description: "Chat with your training data",
     images: ["https://trainingchat.tech/og-image.png"],
   },
 };

@@ -65,11 +65,13 @@ export default function LandingPage() {
 
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 max-w-xl leading-tight">
-          Chat about your training data.
+        <h1 className="text-5xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
+          Chat with your training data.
         </h1>
         <p className="mt-5 text-lg text-zinc-500 dark:text-zinc-400 max-w-lg leading-relaxed">
-          Connect your training data and ask anything in plain English. Pace trends, recovery, personal bests, and more.
+          Connect your training data and ask anything.
+          <br />
+          Pace trends, recovery, personal bests, and more.
         </p>
 
         {/* Waitlist form */}
