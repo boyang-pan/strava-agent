@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Brain, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReasoningStateRow } from "@/components/chat/reasoning-state";
@@ -22,10 +22,6 @@ export function ThinkingContainer({
   duration_ms,
 }: ThinkingContainerProps) {
   const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (isStreaming) setUserCollapsed(null);
-  }, [isStreaming]);
 
   const hasContent = !!reasoning || states.length > 0;
   if (!hasContent) return null;
