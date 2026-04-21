@@ -68,14 +68,20 @@ export function MessageAgent({ message, isStreaming, createdAt, onRetry }: Messa
       {/* Chart */}
       {message.chart && <ChartBlock chart={message.chart} />}
 
+      {/* Pulsing indicator while streaming with no answer yet */}
+      {isStreaming && !message.final_answer && (
+        <div className="flex items-center gap-1 py-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 animate-bounce [animation-delay:300ms]" />
+        </div>
+      )}
+
       {/* Final answer */}
       {message.final_answer && (
         <div className="group/answer relative">
           <div
-            className={cn(
-              "prose-answer",
-              isStreaming && "streaming-cursor"
-            )}
+            className="prose-answer"
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -137,6 +143,13 @@ export function MessageAgent({ message, isStreaming, createdAt, onRetry }: Messa
             >
               {message.final_answer}
             </ReactMarkdown>
+            {isStreaming && (
+              <span className="inline-flex items-center gap-0.5 ml-1 mb-1">
+                <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:0ms]" />
+                <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:150ms]" />
+                <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+              </span>
+            )}
           </div>
 
           {!isStreaming && !message.error && (
