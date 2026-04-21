@@ -153,15 +153,15 @@ export async function POST(request: Request) {
           }
           try {
             const result = streamText(phase2Config);
+            let hasText = false;
             let hasToolResults = false;
-            let textSinceLastToolResult = false;
             for await (const chunk of result.fullStream) {
               let line: string | null = null;
 
               if (chunk.type === "reasoning-delta") {
                 line = `r:${JSON.stringify(chunk.text)}\n`;
               } else if (chunk.type === "text-delta") {
-                textSinceLastToolResult = true;
+                hasText = true;
                 line = `0:${JSON.stringify(chunk.text)}\n`;
               } else if (chunk.type === "tool-call") {
                 let parsedInput: unknown = chunk.input;
@@ -169,12 +169,9 @@ export async function POST(request: Request) {
                 line = `9:${JSON.stringify({ toolName: chunk.toolName, args: parsedInput })}\n`;
               } else if (chunk.type === "tool-result") {
                 hasToolResults = true;
-                textSinceLastToolResult = false;
                 line = `a:${JSON.stringify({ result: chunk.output })}\n`;
               } else if (chunk.type === "finish") {
-                // If the stream ended after tool calls but without a final answer,
-                // the model was likely cut off (e.g. by a silent rate limit failure).
-                if (hasToolResults && !textSinceLastToolResult) {
+                if (hasToolResults && !hasText) {
                   incompleteResponse = true;
                 } else {
                   line = `d:{}\n`;
