@@ -26,8 +26,8 @@ export function ThinkingContainer({
   const hasContent = !!reasoning || states.length > 0;
   if (!hasContent) return null;
 
-  // Automatic: open while streaming and no answer yet; user override wins
-  const isOpen = userCollapsed !== null ? !userCollapsed : isStreaming && !hasAnswer;
+  // Automatic: open while streaming; collapse when done. User override wins.
+  const isOpen = userCollapsed !== null ? !userCollapsed : isStreaming;
 
   function headerLabel() {
     if (isStreaming && !hasAnswer) {
