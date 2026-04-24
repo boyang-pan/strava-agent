@@ -199,6 +199,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastQuestionRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const navigatedAwayRef = useRef(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const inputBarRef = useRef<HTMLTextAreaElement>(null);
   // Tracks a conversation ID we just created ourselves so the reset
@@ -207,6 +208,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
+    // Abort any in-progress stream from the previous conversation
+    navigatedAwayRef.current = true;
+    abortControllerRef.current?.abort();
+
     // Skip reset when we navigated here by creating the conversation ourselves
     if (conversationId && conversationId === selfCreatedIdRef.current) {
       selfCreatedIdRef.current = null;
@@ -488,22 +493,47 @@ export function ChatView({ conversationId }: ChatViewProps) {
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === agentMsgId
-                ? {
-                    ...m,
-                    content: {
-                      ...currentAgentMsg,
-                      states: currentAgentMsg.states.map((s) =>
-                        s.status === "active" ? { ...s, status: "done" } : s
-                      ),
-                      final_answer: currentAgentMsg.final_answer || "*(stopped)*",
-                    } as AgentMessage,
-                  }
-                : m
-            )
-          );
+          if (navigatedAwayRef.current) {
+            // Navigation-triggered abort: persist partial message to DB so the
+            // old conversation is recoverable when the user returns to it.
+            const persistedAgentMsg: AgentMessage = {
+              ...currentAgentMsg,
+              states: currentAgentMsg.states.map((s) =>
+                s.status === "active" ? { ...s, status: "done" } : s
+              ),
+              final_answer: currentAgentMsg.final_answer || "*(response interrupted)*",
+            };
+            if (convId) {
+              fetch(`/api/conversations/${convId}/messages`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: [
+                    { role: "user", content: question },
+                    { role: "assistant", content: persistedAgentMsg },
+                  ],
+                }),
+              }).catch(() => {});
+            }
+          } else {
+            // User-initiated Stop: update UI only, do not persist.
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === agentMsgId
+                  ? {
+                      ...m,
+                      content: {
+                        ...currentAgentMsg,
+                        states: currentAgentMsg.states.map((s) =>
+                          s.status === "active" ? { ...s, status: "done" } : s
+                        ),
+                        final_answer: currentAgentMsg.final_answer || "*(stopped)*",
+                      } as AgentMessage,
+                    }
+                  : m
+              )
+            );
+          }
         } else {
           console.error("Agent stream error:", err);
           setMessages((prev) =>
@@ -521,6 +551,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
           );
         }
       } finally {
+        navigatedAwayRef.current = false;
         setIsLoading(false);
       }
     },
