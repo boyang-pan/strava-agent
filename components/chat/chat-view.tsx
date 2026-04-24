@@ -199,6 +199,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastQuestionRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Which conversationId the user is currently viewing
+  const activeConvIdRef = useRef<string | null>(null);
+  // Per-conversation message cache so background streams survive navigation
+  const streamCacheRef = useRef<Map<string, LocalMessage[]>>(new Map());
   const titleInputRef = useRef<HTMLInputElement>(null);
   const inputBarRef = useRef<HTMLTextAreaElement>(null);
   // Tracks a conversation ID we just created ourselves so the reset
@@ -207,9 +211,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
-    // Reset loading state so the new conversation's InputBar is immediately usable
-    // even if a stream from the previous conversation is still running in the background.
-    setIsLoading(false);
+    activeConvIdRef.current = conversationId;
 
     // Skip reset when we navigated here by creating the conversation ourselves
     if (conversationId && conversationId === selfCreatedIdRef.current) {
@@ -217,6 +219,26 @@ export function ChatView({ conversationId }: ChatViewProps) {
       return;
     }
 
+    // If a stream is still running for this conversation, restore its live state
+    // instead of wiping messages and fetching from DB (which won't have it yet).
+    if (conversationId) {
+      const cached = streamCacheRef.current.get(conversationId);
+      if (cached) {
+        setMessages(cached);
+        setConversationTitle(null);
+        setIsLoading(true);
+        fetch("/api/conversations")
+          .then((r) => r.json())
+          .then((data: Conversation[]) => {
+            const match = (data as Conversation[]).find((c) => c.id === conversationId);
+            if (match?.title) setConversationTitle(match.title);
+          })
+          .catch(() => {});
+        return;
+      }
+    }
+
+    setIsLoading(false);
     setMessages([]);
     setConversationTitle(null);
     setHasTitleBeenSet(false);
@@ -389,6 +411,15 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
 
+      // Seed the per-conversation cache so navigation away doesn't lose this stream
+      if (convId) {
+        streamCacheRef.current.set(convId, [
+          ...messages,
+          { id: userMsgId, role: "user", content: question },
+          { id: agentMsgId, role: "assistant", content: initialAgentMsg },
+        ]);
+      }
+
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
@@ -415,11 +446,24 @@ export function ChatView({ conversationId }: ChatViewProps) {
             if (!line.trim()) continue;
             const { updated, done: streamDone } = parseStreamLine(line, currentAgentMsg);
             currentAgentMsg = updated;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId ? { ...m, content: { ...currentAgentMsg } } : m
-              )
-            );
+            // Always keep the cache current so returning to this conversation
+            // shows the live stream state.
+            if (convId) {
+              streamCacheRef.current.set(
+                convId,
+                (streamCacheRef.current.get(convId) ?? []).map((m) =>
+                  m.id === agentMsgId ? { ...m, content: { ...currentAgentMsg } } : m
+                )
+              );
+            }
+            // Only update React state when the user is currently viewing this conversation.
+            if (convId === activeConvIdRef.current) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === agentMsgId ? { ...m, content: { ...currentAgentMsg } } : m
+                )
+              );
+            }
             if (streamDone) break;
           }
         }
@@ -447,11 +491,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
           };
         }
 
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
-          )
-        );
+        if (convId === activeConvIdRef.current) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
+            )
+          );
+        }
 
         // Fire-and-forget message persistence
         if (convId) {
@@ -467,8 +513,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
           }).catch(() => {});
         }
 
-        // Fire-and-forget title generation
-        if (convId && !hasTitleBeenSet) {
+        // Fire-and-forget title generation (only when user is viewing this conversation)
+        if (convId && !hasTitleBeenSet && convId === activeConvIdRef.current) {
           setHasTitleBeenSet(true);
           fetch("/api/title", {
             method: "POST",
@@ -525,7 +571,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
           );
         }
       } finally {
-        setIsLoading(false);
+        if (convId) streamCacheRef.current.delete(convId);
+        if (convId === activeConvIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [isLoading, messages, conversationId, hasTitleBeenSet]
