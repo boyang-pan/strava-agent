@@ -42,11 +42,15 @@ export function SidebarWrapper() {
     fetch("/api/conversations")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setConversations(data);
+        if (Array.isArray(data)) {
+          setConversations(data);
+          window.dispatchEvent(new CustomEvent("conversations:updated", { detail: data }));
+        }
       })
       .catch(() => {})
       .finally(() => setIsLoadingConversations(false));
-  }, [pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function handleRenamed(e: Event) {
@@ -71,7 +75,15 @@ export function SidebarWrapper() {
   async function handleNew() {
     const res = await fetch("/api/conversations", { method: "POST" });
     const data = await res.json();
-    if (data?.id) router.push(`/chat/${data.id}`);
+    if (data?.id) {
+      const newConv = { id: data.id, title: null, created_at: new Date().toISOString() };
+      setConversations((prev) => {
+        const updated = [newConv, ...prev];
+        window.dispatchEvent(new CustomEvent("conversations:updated", { detail: updated }));
+        return updated;
+      });
+      router.push(`/chat/${data.id}`);
+    }
   }
 
   useEffect(() => {
@@ -91,15 +103,21 @@ export function SidebarWrapper() {
   }
 
   async function handleDelete(id: string) {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
+    setConversations((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
+      window.dispatchEvent(new CustomEvent("conversations:updated", { detail: updated }));
+      return updated;
+    });
     await fetch(`/api/conversations/${id}`, { method: "DELETE" });
     if (activeId === id) router.push("/chat");
   }
 
   async function handleRename(id: string, title: string) {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title } : c))
-    );
+    setConversations((prev) => {
+      const updated = prev.map((c) => (c.id === id ? { ...c, title } : c));
+      window.dispatchEvent(new CustomEvent("conversations:updated", { detail: updated }));
+      return updated;
+    });
     window.dispatchEvent(new CustomEvent("conversation:renamed", { detail: { id, title } }));
     await fetch(`/api/conversations/${id}`, {
       method: "PATCH",

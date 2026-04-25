@@ -203,11 +203,30 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const activeConvIdRef = useRef<string | null>(null);
   // Per-conversation message cache so background streams survive navigation
   const streamCacheRef = useRef<Map<string, LocalMessage[]>>(new Map());
+  // Persistent cache for fully-loaded conversations — enables instant switching
+  const loadedConversationCache = useRef<Map<string, LocalMessage[]>>(new Map());
+  // Most recent conversations list broadcast by the sidebar
+  const conversationsRef = useRef<Conversation[]>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const inputBarRef = useRef<HTMLTextAreaElement>(null);
   // Tracks a conversation ID we just created ourselves so the reset
   // effect below doesn't wipe messages when the URL updates to the new ID
   const selfCreatedIdRef = useRef<string | null>(null);
+
+  // Keep conversationsRef up-to-date from the sidebar broadcast — no title fetch needed
+  useEffect(() => {
+    function onConversationsUpdated(e: Event) {
+      const convs = (e as CustomEvent<Conversation[]>).detail;
+      conversationsRef.current = convs;
+      const activeId = activeConvIdRef.current;
+      if (activeId) {
+        const match = convs.find((c) => c.id === activeId);
+        if (match?.title) setConversationTitle(match.title);
+      }
+    }
+    window.addEventListener("conversations:updated", onConversationsUpdated);
+    return () => window.removeEventListener("conversations:updated", onConversationsUpdated);
+  }, []);
 
   // Load existing messages + title when conversationId changes
   useEffect(() => {
@@ -222,18 +241,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
     // If a stream is still running for this conversation, restore its live state
     // instead of wiping messages and fetching from DB (which won't have it yet).
     if (conversationId) {
-      const cached = streamCacheRef.current.get(conversationId);
-      if (cached) {
-        setMessages(cached);
+      const liveCache = streamCacheRef.current.get(conversationId);
+      if (liveCache) {
+        setMessages(liveCache);
         setConversationTitle(null);
         setIsLoading(true);
-        fetch("/api/conversations")
-          .then((r) => r.json())
-          .then((data: Conversation[]) => {
-            const match = (data as Conversation[]).find((c) => c.id === conversationId);
-            if (match?.title) setConversationTitle(match.title);
-          })
-          .catch(() => {});
+        const match = conversationsRef.current.find((c) => c.id === conversationId);
+        if (match?.title) setConversationTitle(match.title);
         return;
       }
     }
@@ -245,11 +259,24 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
     if (!conversationId) return;
 
-    // Fetch messages
+    // Resolve title instantly from sidebar's already-fetched list
+    const titleMatch = conversationsRef.current.find((c) => c.id === conversationId);
+    if (titleMatch?.title) setConversationTitle(titleMatch.title);
+
+    // Serve from message cache for instant switching — no network round-trip
+    const cachedMessages = loadedConversationCache.current.get(conversationId);
+    if (cachedMessages) {
+      setMessages(cachedMessages);
+      if (cachedMessages.length > 0) setHasTitleBeenSet(true);
+      return;
+    }
+
+    // Cache miss: fetch from DB
     setIsLoadingHistory(true);
     fetch(`/api/conversations/${conversationId}`)
       .then((r) => r.json())
       .then((data: Message[]) => {
+        if (activeConvIdRef.current !== conversationId) return;
         if (!Array.isArray(data)) return;
         const loaded: LocalMessage[] = data.map((m) => ({
           id: m.id,
@@ -263,19 +290,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
           createdAt: m.created_at,
         }));
         setMessages(loaded);
+        loadedConversationCache.current.set(conversationId, loaded);
         if (loaded.length > 0) setHasTitleBeenSet(true);
       })
       .catch(() => {})
       .finally(() => setIsLoadingHistory(false));
-
-    // Fetch title for this conversation
-    fetch("/api/conversations")
-      .then((r) => r.json())
-      .then((data: Conversation[]) => {
-        const match = data.find((c) => c.id === conversationId);
-        if (match?.title) setConversationTitle(match.title);
-      })
-      .catch(() => {});
   }, [conversationId]);
 
   // Press "/" anywhere to focus the chat input
@@ -538,40 +557,42 @@ export function ChatView({ conversationId }: ChatViewProps) {
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
+          currentAgentMsg = {
+            ...currentAgentMsg,
+            states: currentAgentMsg.states.map((s) =>
+              s.status === "active" ? { ...s, status: "done" } : s
+            ),
+            final_answer: currentAgentMsg.final_answer || "*(stopped)*",
+          };
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === agentMsgId
-                ? {
-                    ...m,
-                    content: {
-                      ...currentAgentMsg,
-                      states: currentAgentMsg.states.map((s) =>
-                        s.status === "active" ? { ...s, status: "done" } : s
-                      ),
-                      final_answer: currentAgentMsg.final_answer || "*(stopped)*",
-                    } as AgentMessage,
-                  }
-                : m
+              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
             )
           );
         } else {
           console.error("Agent stream error:", err);
+          currentAgentMsg = {
+            states: [],
+            final_answer: "Something went wrong. Please try again.",
+          } as AgentMessage;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === agentMsgId
-                ? {
-                    ...m,
-                    content: {
-                      states: [],
-                      final_answer: "Something went wrong. Please try again.",
-                    } as AgentMessage,
-                  }
-                : m
+              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
             )
           );
         }
       } finally {
-        if (convId) streamCacheRef.current.delete(convId);
+        if (convId) {
+          // Migrate the completed stream into the persistent message cache
+          const streamMessages = streamCacheRef.current.get(convId);
+          if (streamMessages) {
+            const finalMessages = streamMessages.map((m) =>
+              m.id === agentMsgId ? { ...m, content: currentAgentMsg } : m
+            );
+            loadedConversationCache.current.set(convId, finalMessages);
+          }
+          streamCacheRef.current.delete(convId);
+        }
         if (convId === activeConvIdRef.current) {
           setIsLoading(false);
         }
@@ -591,6 +612,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   async function handleDeleteConversation() {
     if (!conversationId) return;
+    loadedConversationCache.current.delete(conversationId);
     await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" }).catch(() => {});
     router.push("/chat");
   }
