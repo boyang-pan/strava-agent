@@ -39,7 +39,7 @@ const DropdownMenuItem = React.forwardRef<
       "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
       "focus:bg-zinc-100 dark:focus:bg-zinc-800",
       destructive
-        ? "text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+        ? "text-[var(--destructive)] focus:text-[var(--destructive)]"
         : "text-zinc-700 dark:text-zinc-300",
       className
     )}
