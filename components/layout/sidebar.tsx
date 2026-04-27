@@ -12,6 +12,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { cn, groupByRecency } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Conversation } from "@/types";
@@ -63,6 +71,7 @@ function ConversationItem({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(conversation.title ?? "");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -81,6 +90,7 @@ function ConversationItem({
     }
     setIsEditing(false);
   }
+
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") commitRename();
@@ -153,13 +163,35 @@ function ConversationItem({
               <Pencil className="w-3.5 h-3.5" />
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDelete} destructive>
+            <DropdownMenuItem onSelect={() => setShowDeleteDialog(true)} destructive>
               <Trash2 className="w-3.5 h-3.5" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent showCloseButton={false} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete conversation?</DialogTitle>
+            <DialogDescription>
+              &ldquo;{conversation.title ?? "New conversation"}&rdquo; will be permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setShowDeleteDialog(false); onDelete(); }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

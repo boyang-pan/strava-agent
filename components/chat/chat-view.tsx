@@ -231,6 +231,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
   // Load existing messages + title when conversationId changes
   useEffect(() => {
     activeConvIdRef.current = conversationId;
+    shouldAutoScrollRef.current = true;
+    setShowScrollButton(false);
 
     // Skip reset when we navigated here by creating the conversation ourselves
     if (conversationId && conversationId === selfCreatedIdRef.current) {
