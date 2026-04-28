@@ -691,7 +691,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
         {isLoadingHistory ? (
-          <div className="max-w-2xl mx-auto px-6 py-6 w-full animate-pulse space-y-6">
+          <div className="max-w-3xl mx-auto px-6 py-6 w-full animate-pulse space-y-6">
             {/* user bubble */}
             <div className="flex justify-end">
               <div className="h-9 w-48 rounded-2xl bg-zinc-100 dark:bg-zinc-800" />
@@ -717,7 +717,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         ) : messages.length === 0 ? (
           <EmptyState onPrompt={handleSubmit} />
         ) : (
-          <div className="max-w-2xl mx-auto px-6 py-6">
+          <div className="max-w-3xl mx-auto px-6 py-6">
             {messages.map((msg) => {
               if (msg.role === "user") {
                 return (
@@ -748,7 +748,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       {/* Input */}
       <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 shrink-0">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <InputBar key={conversationId ?? "new"} onSubmit={handleSubmit} disabled={isLoading} onStop={handleStop} textareaRef={inputBarRef} />
 
         </div>
