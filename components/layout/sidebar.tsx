@@ -332,7 +332,8 @@ export function Sidebar({ conversations, isLoadingConversations, activeId, onSel
           onClick={onNew}
         >
           <Plus className="w-4 h-4" />
-          New conversation
+          <span className="flex-1 text-left">New conversation</span>
+          <kbd className="text-[10px] text-zinc-300 dark:text-zinc-600 font-mono">⌘K</kbd>
         </Button>
       </div>
 
