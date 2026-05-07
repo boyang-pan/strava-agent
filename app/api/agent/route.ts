@@ -198,6 +198,9 @@ export async function POST(request: Request) {
         }
 
         if (completedSuccessfully) {
+          // Send done signal immediately so the client drops the streaming indicator
+          // while follow-up questions generate in the background.
+          controller.enqueue(encoder.encode(`d:{}\n`));
           try {
             const res = await generateText({
               model: anthropic("claude-haiku-4-5-20251001"),
@@ -214,7 +217,6 @@ export async function POST(request: Request) {
           } catch {
             // skip follow-ups if generation fails
           }
-          controller.enqueue(encoder.encode(`d:{}\n`));
         }
 
         if (lastErr || incompleteResponse) {

@@ -197,6 +197,7 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
 export function ChatView({ conversationId }: ChatViewProps) {
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [hasTitleBeenSet, setHasTitleBeenSet] = useState(false);
@@ -444,6 +445,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       let currentAgentMsg: AgentMessage = { ...initialAgentMsg };
       streamingActiveRef.current = true;
+      setStreamingMsgId(agentMsgId);
 
       // Seed the per-conversation cache so navigation away doesn't lose this stream
       if (convId) {
@@ -467,6 +469,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let hitDone = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -490,25 +493,38 @@ export function ChatView({ conversationId }: ChatViewProps) {
                 )
               );
             }
-            // Batch React state updates to RAF cadence (~60fps) — the stream cache
-            // above stays current synchronously so navigation still sees live state.
-            if (convId === activeConvIdRef.current) {
-              pendingMsgUpdateRef.current = { id: agentMsgId, msg: { ...currentAgentMsg } };
-              if (!rafScheduledRef.current) {
-                rafScheduledRef.current = true;
-                requestAnimationFrame(() => {
-                  rafScheduledRef.current = false;
-                  if (!streamingActiveRef.current) return;
-                  const pending = pendingMsgUpdateRef.current;
-                  if (pending && convId === activeConvIdRef.current) {
-                    setMessages((prev) =>
-                      prev.map((m) => (m.id === pending.id ? { ...m, content: pending.msg } : m))
-                    );
-                  }
-                });
+
+            if (streamDone) {
+              // d:{} received — immediately drop the streaming indicator so the
+              // user sees the final answer while follow-up suggestions generate.
+              hitDone = true;
+              setStreamingMsgId(null);
+            } else if (hitDone) {
+              // Post-done lines (e.g. f: followups) — direct update, no RAF needed
+              if (convId === activeConvIdRef.current) {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === agentMsgId ? { ...m, content: { ...currentAgentMsg } } : m))
+                );
+              }
+            } else {
+              // Normal streaming — batch React updates to RAF cadence (~60fps)
+              if (convId === activeConvIdRef.current) {
+                pendingMsgUpdateRef.current = { id: agentMsgId, msg: { ...currentAgentMsg } };
+                if (!rafScheduledRef.current) {
+                  rafScheduledRef.current = true;
+                  requestAnimationFrame(() => {
+                    rafScheduledRef.current = false;
+                    if (!streamingActiveRef.current) return;
+                    const pending = pendingMsgUpdateRef.current;
+                    if (pending && convId === activeConvIdRef.current) {
+                      setMessages((prev) =>
+                        prev.map((m) => (m.id === pending.id ? { ...m, content: pending.msg } : m))
+                      );
+                    }
+                  });
+                }
               }
             }
-            if (streamDone) break;
           }
         }
 
@@ -622,6 +638,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
           }
           streamCacheRef.current.delete(convId);
         }
+        setStreamingMsgId(null);
         if (convId === activeConvIdRef.current) {
           setIsLoading(false);
         }
@@ -759,7 +776,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
                 <MessageAgent
                   key={msg.id}
                   message={msg.content as AgentMessage}
-                  isStreaming={isLoading && msg.id === lastAgentMsgId}
+                  isStreaming={streamingMsgId === msg.id}
                   createdAt={msg.createdAt}
                   onRetry={
                     msg.id === lastAgentMsgId && (msg.content as AgentMessage).error

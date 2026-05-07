@@ -150,9 +150,11 @@ export async function syncStravaActivitiesPhase2Batch(
     }
 
     // Stop early if approaching 15-min rate limit — next cron tick handles more
+    let ratioUsed = 0;
     if (result.rateLimitUsage) {
       const { used, limit } = parseRateLimitUsage(result.rateLimitUsage);
-      if (used >= limit * BACKOFF_THRESHOLD) {
+      ratioUsed = limit > 0 ? used / limit : 0;
+      if (ratioUsed >= BACKOFF_THRESHOLD) {
         console.log(`[cron-p2] user ${userId}: rate limit ${used}/${limit}, stopping batch early`);
         await updateJob({ status: "rate_limited" });
         break;
@@ -195,7 +197,9 @@ export async function syncStravaActivitiesPhase2Batch(
       await updateJob({ synced: alreadySynced + processed });
     }
 
-    await new Promise((r) => setTimeout(r, 300));
+    // Adaptive sleep: skip delay when under 50% rate-limit usage, slow down above 70%
+    const sleepMs = ratioUsed < 0.5 ? 0 : ratioUsed < 0.7 ? 100 : 300;
+    if (sleepMs > 0) await new Promise((r) => setTimeout(r, sleepMs));
   }
 
   // Recount remaining after batch
@@ -288,10 +292,12 @@ export async function syncStravaActivitiesPhase2(userId: string): Promise<void> 
       }
 
       // Check 15-min rate limit usage and back off if approaching threshold
+      let legacyRatioUsed = 0;
       if (result.rateLimitUsage) {
         const { used, limit } = parseRateLimitUsage(result.rateLimitUsage);
         dailyUsed++;
-        if (used >= limit * BACKOFF_THRESHOLD) {
+        legacyRatioUsed = limit > 0 ? used / limit : 0;
+        if (legacyRatioUsed >= BACKOFF_THRESHOLD) {
           console.log(`[sync-p2] user ${userId}: rate limit ${used}/${limit}, sleeping 60s...`);
           await new Promise((r) => setTimeout(r, 60 * 1000));
         }
@@ -339,7 +345,8 @@ export async function syncStravaActivitiesPhase2(userId: string): Promise<void> 
         await updateJob({ synced });
       }
 
-      await new Promise((r) => setTimeout(r, 300));
+      const legacySleepMs = legacyRatioUsed < 0.5 ? 0 : legacyRatioUsed < 0.7 ? 100 : 300;
+      if (legacySleepMs > 0) await new Promise((r) => setTimeout(r, legacySleepMs));
     }
 
     await updateJob({ status: "completed", synced, total });
