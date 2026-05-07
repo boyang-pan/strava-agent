@@ -13,32 +13,40 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTheme } from "next-themes";
 import type { ChartPayload } from "@/types";
-
-const ZINC_900 = "#18181b";
-const ZINC_200 = "#e4e4e7";
-const ZINC_500 = "#71717a";
-
-const axisTickStyle = {
-  fontSize: 11,
-  fill: ZINC_500,
-  fontFamily: "var(--font-ibm-plex-mono), monospace",
-};
-
-const tooltipContentStyle = {
-  border: `1px solid ${ZINC_200}`,
-  borderRadius: "4px",
-  fontSize: 11,
-  fontFamily: "var(--font-ibm-plex-mono), monospace",
-  backgroundColor: "#fff",
-  boxShadow: "none",
-};
 
 interface ChartBlockProps {
   chart: ChartPayload;
 }
 
 export function ChartBlock({ chart }: ChartBlockProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const seriesColor = isDark ? "#e4e4e7" : "#18181b";
+  const gridColor = isDark ? "#3f3f46" : "#e4e4e7";
+  const tickColor = isDark ? "#a1a1aa" : "#71717a";
+  const tooltipBg = isDark ? "#27272a" : "#ffffff";
+  const tooltipBorder = isDark ? "#3f3f46" : "#e4e4e7";
+  const tooltipText = isDark ? "#f4f4f5" : "#18181b";
+
+  const axisTickStyle = {
+    fontSize: 11,
+    fill: tickColor,
+    fontFamily: "var(--font-ibm-plex-mono), monospace",
+  };
+
+  const tooltipContentStyle = {
+    border: `1px solid ${tooltipBorder}`,
+    borderRadius: "4px",
+    fontSize: 11,
+    fontFamily: "var(--font-ibm-plex-mono), monospace",
+    backgroundColor: tooltipBg,
+    color: tooltipText,
+    boxShadow: "none",
+  };
+
   const { type, title, subtitle, data, x_key, y_key, x_label, y_label } = chart;
 
   return (
@@ -51,7 +59,7 @@ export function ChartBlock({ chart }: ChartBlockProps) {
       <ResponsiveContainer width="100%" height={240}>
         {type === "line" ? (
           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={ZINC_200} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis
               dataKey={x_key}
               tick={axisTickStyle}
@@ -73,27 +81,27 @@ export function ChartBlock({ chart }: ChartBlockProps) {
             <Line
               type="monotone"
               dataKey={y_key}
-              stroke={ZINC_900}
+              stroke={seriesColor}
               strokeWidth={1.5}
               dot={false}
-              activeDot={{ r: 3, fill: ZINC_900 }}
+              activeDot={{ r: 3, fill: seriesColor }}
             />
           </LineChart>
         ) : type === "bar" ? (
           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={ZINC_200} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey={x_key} tick={axisTickStyle} />
             <YAxis tick={axisTickStyle} />
             <Tooltip contentStyle={tooltipContentStyle} />
-            <Bar dataKey={y_key} fill={ZINC_900} radius={[2, 2, 0, 0]} />
+            <Bar dataKey={y_key} fill={seriesColor} radius={[2, 2, 0, 0]} />
           </BarChart>
         ) : (
           <ScatterChart margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={ZINC_200} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey={x_key} tick={axisTickStyle} name={x_label ?? x_key} />
             <YAxis dataKey={y_key} tick={axisTickStyle} name={y_label ?? y_key} />
             <Tooltip contentStyle={tooltipContentStyle} cursor={{ strokeDasharray: "3 3" }} />
-            <Scatter data={data} fill={ZINC_900} />
+            <Scatter data={data} fill={seriesColor} />
           </ScatterChart>
         )}
       </ResponsiveContainer>

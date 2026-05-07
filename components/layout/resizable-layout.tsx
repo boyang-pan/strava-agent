@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect, useLayoutEffect } from "react";
 
 interface SidebarContextValue {
   isCollapsed: boolean;
@@ -21,9 +21,32 @@ interface ResizableLayoutProps {
 export function ResizableLayout({ sidebar, children }: ResizableLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  useLayoutEffect(() => {
+    if (localStorage.getItem("sidebar-collapsed") === "true") setIsCollapsed(true);
+  }, []);
+
   function toggle() {
-    setIsCollapsed((c) => !c);
+    setIsCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
   }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        setIsCollapsed((c) => {
+          const next = !c;
+          localStorage.setItem("sidebar-collapsed", String(next));
+          return next;
+        });
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <SidebarContext value={{ isCollapsed, toggle }}>
