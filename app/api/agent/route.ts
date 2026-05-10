@@ -37,7 +37,12 @@ export async function POST(request: Request) {
     const dateContext = `Today's date context: today=${now.toISOString().split("T")[0]}, day_of_week=${now.toLocaleDateString("en-US", { weekday: "long" })}, iso_week_start=${weekStart}, month_start=${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01.`;
 
     const timezoneContext = timezone ? `User's local timezone: ${timezone}. Always convert start_date (stored as UTC) to this timezone when displaying activity times.` : "";
-    const systemPrompt = `${SYSTEM_PROMPT}\n\n${dateContext}\n\n${timezoneContext ? timezoneContext + "\n\n" : ""}${buildAthleteContext(user, athleteProfile as UserProfile | null)}Current user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`;
+    const dynamicContext = [
+      dateContext,
+      timezoneContext,
+      buildAthleteContext(user, athleteProfile as UserProfile | null),
+      `Current user ID: ${userId}. Always include WHERE user_id = '${userId}' in every SQL query.`,
+    ].filter(Boolean).join("\n\n");
 
     const span = logger.startSpan({ name: "agent-turn" });
 
@@ -60,7 +65,19 @@ export async function POST(request: Request) {
           },
         },
       },
-      system: systemPrompt,
+      system: [
+        {
+          role: "system" as const,
+          content: SYSTEM_PROMPT,
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        },
+        {
+          role: "system" as const,
+          content: dynamicContext,
+        },
+      ],
       messages: [
         ...(history ?? []),
         { role: "user" as const, content: question },
@@ -93,9 +110,11 @@ export async function POST(request: Request) {
         text: string;
         finishReason: string;
         steps: unknown[];
-        usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+        usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; cacheCreationInputTokens?: number; cacheReadInputTokens?: number };
       }) => {
-        console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}`);
+        const cacheRead = usage?.cacheReadInputTokens ?? 0;
+        const cacheWrite = usage?.cacheCreationInputTokens ?? 0;
+        console.log(`[agent] finished — reason: ${finishReason}, steps: ${steps.length}, answer_length: ${text.length}, cache_read: ${cacheRead}, cache_write: ${cacheWrite}`);
 
         const toolErrorCount = toolCalls.filter((tc) => {
           const out = tc.output as Record<string, unknown> | null;
@@ -109,6 +128,8 @@ export async function POST(request: Request) {
             prompt_tokens: usage?.inputTokens,
             completion_tokens: usage?.outputTokens,
             tokens: usage?.totalTokens,
+            cache_read_tokens: cacheRead,
+            cache_write_tokens: cacheWrite,
             tool_error_count: toolErrorCount,
             tool_call_count: toolCalls.length,
           },
