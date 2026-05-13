@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ThinkingContainer } from "@/components/chat/thinking-container";
 import { ChartBlock } from "@/components/chat/chart-block";
+import { WorkoutBlock } from "@/components/chat/workout-block";
 import { cn } from "@/lib/utils";
 import type { AgentMessage } from "@/types";
 
@@ -68,6 +69,9 @@ export const MessageAgent = memo(function MessageAgent({ message, isStreaming, c
 
       {/* Chart */}
       {message.chart && <ChartBlock chart={message.chart} />}
+
+      {/* Workout */}
+      {message.workout && <WorkoutBlock workout={message.workout} />}
 
       {/* Pulsing indicator while streaming with no answer yet */}
       {isStreaming && !message.final_answer && (

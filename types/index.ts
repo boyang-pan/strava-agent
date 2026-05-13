@@ -32,6 +32,21 @@ export interface ChartPayload {
   y_label?: string;
 }
 
+export interface WorkoutSegment {
+  duration_min: number;
+  zone: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  intensity_pct?: number;
+  label?: string;
+}
+
+export interface WorkoutPayload {
+  title: string;
+  sport: "run" | "ride" | "swim" | "other";
+  total_duration_min: number;
+  segments: WorkoutSegment[];
+  description?: string;
+}
+
 export interface AgentPlan {
   steps: string[];
 }
@@ -40,6 +55,7 @@ export interface AgentMessage {
   plan?: AgentPlan;
   states: ReasoningState[];
   chart?: ChartPayload;
+  workout?: WorkoutPayload;
   reasoning?: string;
   final_answer: string;
   duration_ms?: number;

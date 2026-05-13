@@ -123,6 +123,13 @@ function parseStreamLine(
         ) {
           updated.chart = output as AgentMessage["chart"];
         }
+        if (
+          updated.states[idx].toolCall?.tool === "render_workout" &&
+          output &&
+          typeof output === "object"
+        ) {
+          updated.workout = output as AgentMessage["workout"];
+        }
       }
     } catch {
       // ignore
@@ -163,6 +170,7 @@ function labelForTool(toolName: string, input: Record<string, unknown>): string 
     get_notes: "Checking your notes",
     add_note: "Saving a note",
     render_chart: "Preparing chart",
+    render_workout: "Preparing workout",
     ask_user: "Asking a clarifying question",
   };
 

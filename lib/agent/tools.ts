@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { computeTrainingLoad, type TrainingLoadResult } from "@/lib/agent/training-load";
-import type { ChartPayload } from "@/types";
+import type { ChartPayload, WorkoutPayload } from "@/types";
 
 const trainingLoadCache = new Map<string, { result: TrainingLoadResult; ts: number }>();
 const TRAINING_LOAD_CACHE_TTL = 5 * 60 * 1000;
@@ -248,6 +248,24 @@ export function createAgentTools(userId: string) {
       execute: async (params) => {
         return params as ChartPayload;
       },
+    }),
+
+    render_workout: tool({
+      description:
+        "Emits a structured workout payload for the frontend to render as a Zwift-style bar chart. Use when prescribing an endurance workout (run, ride, swim). Each segment needs a zone (1–7), duration in minutes, and optionally an intensity percentage and label. Always follow render_workout with a written explanation of the workout — never let it be your final action. Do NOT use for strength training.",
+      inputSchema: z.object({
+        title: z.string().describe("Workout name, e.g. 'Threshold Intervals'"),
+        sport: z.enum(["run", "ride", "swim", "other"]),
+        total_duration_min: z.number().describe("Total workout duration in minutes"),
+        description: z.string().optional().describe("Optional one-line summary"),
+        segments: z.array(z.object({
+          duration_min: z.number().describe("Segment duration in minutes"),
+          zone: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]).describe("Training zone (1=Recovery, 2=Endurance, 3=Tempo, 4=Threshold, 5=VO2max, 6=Anaerobic, 7=Neuromuscular)"),
+          intensity_pct: z.number().optional().describe("Intensity as % of FTP or HRmax (0–150). Omit to use zone midpoint."),
+          label: z.string().optional().describe("Segment label, e.g. 'warm-up', '4×1km @ T-pace', 'recovery jog'"),
+        })),
+      }),
+      execute: async (params) => params as WorkoutPayload,
     }),
 
     get_training_load: tool({
